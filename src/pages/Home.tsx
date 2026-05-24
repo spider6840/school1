@@ -43,7 +43,7 @@ export default function Home() {
             className="relative h-[500px] rounded-3xl overflow-hidden shadow-2xl"
           >
              <img
-                src="https://picsum.photos/seed/school/800/600"
+                src="https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=800&q=80"
                 alt="Modern School"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"

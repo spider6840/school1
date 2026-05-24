@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
@@ -11,46 +12,67 @@ import {
   ShieldCheck,
   ChevronRight,
   BookOpen,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Building,
+  Menu,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
 import Classes from './dashboard/Classes';
 import Attendance from './dashboard/Attendance';
 import Settings from './dashboard/Settings';
+import Schools from './dashboard/Schools';
 
 export default function Dashboard() {
-  const { user, role, isAdmin } = useAuth();
+  const { user, role, isAdmin, isSuperAdmin } = useAuth();
   const { t, dir } = useLanguage();
   const { primaryColor } = useTheme();
   const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', roles: ['admin', 'teacher', 'student', 'parent'] },
-    { icon: Users, label: 'Admissions', path: '/dashboard/users', roles: ['admin'] },
-    { icon: BookOpen, label: 'Classes', path: '/dashboard/classes', roles: ['admin'] },
-    { icon: CalendarCheck, label: 'Attendance', path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
-    { icon: GraduationCap, label: 'Grading', path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
-    { icon: MessageSquare, label: 'Messages', path: '/dashboard/messages', roles: ['admin', 'teacher', 'student', 'parent'] },
-    { icon: SettingsIcon, label: 'Settings', path: '/dashboard/settings', roles: ['admin'] },
+    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', roles: ['superadmin', 'admin', 'teacher', 'student', 'parent'] },
+    { icon: Building, label: 'Schools', path: '/dashboard/schools', roles: ['superadmin'] },
+    { icon: Users, label: 'Admissions', path: '/dashboard/users', roles: ['superadmin', 'admin'] },
+    { icon: BookOpen, label: 'Classes', path: '/dashboard/classes', roles: ['superadmin', 'admin'] },
+    { icon: CalendarCheck, label: 'Attendance', path: '/dashboard/attendance', roles: ['superadmin', 'admin', 'teacher'] },
+    { icon: GraduationCap, label: 'Grading', path: '/dashboard/grading', roles: ['superadmin', 'admin', 'teacher', 'student'] },
+    { icon: MessageSquare, label: 'Messages', path: '/dashboard/messages', roles: ['superadmin', 'admin', 'teacher', 'student', 'parent'] },
+    { icon: SettingsIcon, label: 'Settings', path: '/dashboard/settings', roles: ['superadmin', 'admin'] },
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(role || ''));
 
   return (
     <div className="pt-20 min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors duration-300">
+      
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
-      <aside className={`w-64 bg-white dark:bg-gray-900 border-${dir === 'ltr' ? 'r' : 'l'} border-gray-100 dark:border-gray-800 flex-shrink-0 hidden lg:block`}>
-        <div className="p-6">
+      <aside className={`fixed lg:sticky top-20 h-[calc(100vh-5rem)] w-64 bg-white dark:bg-gray-900 border-${dir === 'ltr' ? 'r' : 'l'} border-gray-100 dark:border-gray-800 flex-shrink-0 z-50 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-6 overflow-y-auto h-full">
           <div className="space-y-2">
             {filteredMenu.map((item, index) => (
               <Link
                 key={index}
                 to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all group"
               >
                 <item.icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -63,11 +85,22 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 sm:p-8 w-full max-w-full">
+        {/* Mobile Menu Button */}
+        <div className="lg:hidden mb-4">
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-300"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="classes" element={<Classes />} />
+          <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="grading" element={<div>Grading Feature (Coming Soon)</div>} />
           <Route path="messages" element={<div>Messages Feature (Coming Soon)</div>} />

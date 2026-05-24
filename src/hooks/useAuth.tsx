@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               updatedAt: serverTimestamp()
             });
 
-            if (newRole === 'superadmin' || newRole === 'admin') {
+            if (newRole === 'superadmin') {
               await setDoc(doc(db, 'admins', user.uid), {
                 email: userEmail,
                 promotedBy: 'system',
