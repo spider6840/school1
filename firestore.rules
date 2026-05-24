@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || isAdmin());
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role Lookup
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        ((request.auth.token.email == 'r.elmougali@addohaafrique.com' || request.auth.token.email == 'rmougali@yahoo.fr' || request.auth.token.email == 'r.elmougali@edupro.com'))
+      );
+    }
+
+    function isUserWithId(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'role', 'createdAt', 'updatedAt']) &&
+             data.keys().size() <= 10 &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.role in ['admin', 'teacher', 'student', 'parent'] &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isAdmin() || (isUserWithId(userId) && isEmailVerified());
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidUser(incoming()) && incoming().uid == userId;
+      allow update: if (isAdmin() || (isUserWithId(userId) && isEmailVerified())) && 
+                    isValidUser(incoming()) &&
+                    incoming().uid == userId &&
+                    incoming().role == existing().role &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    // Classes Collection
+    match /classes/{classId} {
+      allow get: if isEmailVerified() && (
+        isAdmin() || 
+        existing().teacherId == request.auth.uid ||
+        request.auth.uid in existing().studentIds
+      );
+      allow list: if isEmailVerified(); // Note: Client should query where studentIds contains uid
+      allow write: if isAdmin();
+    }
+
+    // Attendance Collection
+    match /attendance/{attendanceId} {
+      allow read: if isEmailVerified() && (
+        isAdmin() || 
+        get(/databases/$(database)/documents/classes/$(existing().classId)).data.teacherId == request.auth.uid ||
+        request.auth.uid in get(/databases/$(database)/documents/classes/$(existing().classId)).data.studentIds
+      );
+      allow write: if isEmailVerified() && (
+        isAdmin() || 
+        get(/databases/$(database)/documents/classes/$(incoming().classId)).data.teacherId == request.auth.uid
+      );
+    }
+
+    // Grades Collection
+    match /grades/{gradeId} {
+      allow read: if isEmailVerified() && (
+        isAdmin() || 
+        existing().studentId == request.auth.uid ||
+        // Logic for parents should go here if we link them
+        get(/databases/$(database)/documents/classes/$(existing().classId)).data.teacherId == request.auth.uid
+      );
+      allow write: if isEmailVerified() && (
+        isAdmin() || 
+        get(/databases/$(database)/documents/classes/$(incoming().classId)).data.teacherId == request.auth.uid
+      );
+    }
+
+    // Messages Collection
+    match /messages/{messageId} {
+      allow get, delete: if isEmailVerified() && (
+        existing().senderId == request.auth.uid || 
+        existing().receiverId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid
+      );
+      allow create: if isEmailVerified() && 
+                    incoming().senderId == request.auth.uid &&
+                    incoming().timestamp == request.time;
+      allow update: if isEmailVerified() && 
+                    existing().receiverId == request.auth.uid &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
+                    incoming().read == true;
+    }
+  }
+}

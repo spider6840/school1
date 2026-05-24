@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a student, teacher, parent, or admin.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "teacher", "student", "parent"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "admissionNumber": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" }
+      },
+      "required": ["uid", "email", "name", "role", "createdAt", "updatedAt"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A school class or group.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "studentIds": { "type": "array" }
+      },
+      "required": ["id", "name", "teacherId", "studentIds"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Daily attendance record for a class.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "classId": { "type": "string" },
+        "records": { "type": "object" }
+      },
+      "required": ["date", "classId", "records"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "Student grade record.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "classId": { "type": "string" },
+        "subject": { "type": "string" },
+        "score": { "type": "number" },
+        "term": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "classId", "subject", "score", "updatedAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Communication entry.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["senderId", "receiverId", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Main user profiles."
+    },
+    "/admins/{adminId}": {
+      "schema": { "type": "object", "properties": { "uid": { "type": "string" } } },
+      "description": "List of system operators."
+    },
+    "/classes/{classId}": {
+      "schema": "Class",
+      "description": "School classes."
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Daily attendance records."
+    },
+    "/grades/{gradeId}": {
+      "schema": "Grade",
+      "description": "Academic scores."
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Direct communications."
+    }
+  }
+}
