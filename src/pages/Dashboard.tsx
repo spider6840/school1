@@ -85,14 +85,16 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4 sm:p-8 w-full max-w-full">
-        {/* Mobile Menu Button */}
-        <div className="lg:hidden mb-4">
+      <div className="flex-1 overflow-auto p-4 sm:p-8 w-full max-w-full relative">
+        {/* Mobile Menu Button - Sticky and Prominent */}
+        <div className="lg:hidden sticky top-0 z-30 mb-6 bg-gray-50/90 dark:bg-gray-950/90 backdrop-blur-md pb-4 pt-2 -mt-4 -mx-4 px-4 sm:-mx-8 sm:px-8 shadow-sm">
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-300"
+            className="flex items-center gap-3 w-full p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white font-bold transition-transform active:scale-95"
+            style={{ borderLeftWidth: '4px', borderLeftColor: primaryColor }}
           >
             <Menu className="w-6 h-6" />
+            <span>Open Navigation Menu</span>
           </button>
         </div>
 
