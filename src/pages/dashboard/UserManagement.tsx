@@ -1,5 +1,5 @@
 import { FormEvent, useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, setDoc, doc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { db, auth } from '../../lib/firebase';
@@ -55,22 +55,19 @@ export default function UserManagement() {
   const { isAdmin, isSuperAdmin, user: adminUser } = useAuth();
 
   useEffect(() => {
-    fetchUsers();
-    fetchSchools();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
+    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const userList = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
       setUsers(userList);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'users');
-    } finally {
       setLoading(false);
-    }
-  };
+    }, (error) => {
+      console.error(error);
+      setLoading(false);
+    });
+    
+    fetchSchools();
+    return () => unsubscribe();
+  }, []);
 
   const fetchSchools = async () => {
     try {
@@ -128,7 +125,6 @@ export default function UserManagement() {
       }
 
       setSuccessMsg(`Successfully created ${formData.role} account for ${formData.name}`);
-      fetchUsers();
       
       setTimeout(() => {
         setShowAddModal(false);
@@ -169,7 +165,6 @@ export default function UserManagement() {
       
       setShowEditModal(false);
       resetForm();
-      fetchUsers();
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'users');
     } finally {

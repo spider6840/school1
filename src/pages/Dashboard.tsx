@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTheme } from '../hooks/useTheme';
@@ -22,31 +22,50 @@ import UserManagement from './dashboard/UserManagement';
 import Classes from './dashboard/Classes';
 import Attendance from './dashboard/Attendance';
 import Settings from './dashboard/Settings';
+import ProfileSettings from './dashboard/ProfileSettings';
 import Schools from './dashboard/Schools';
+import Subjects from './dashboard/Subjects';
+import Homeworks from './dashboard/Homeworks';
 
 export default function Dashboard() {
-  const { user, role, isAdmin, isSuperAdmin } = useAuth();
+  const { user, role, isAdmin, isSuperAdmin, schoolData } = useAuth();
   const { t, dir } = useLanguage();
   const { primaryColor } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Overview', path: '/dashboard', roles: ['superadmin', 'admin', 'teacher', 'student', 'parent'] },
-    { icon: Building, label: 'Schools', path: '/dashboard/schools', roles: ['superadmin'] },
-    { icon: Users, label: 'Admissions', path: '/dashboard/users', roles: ['superadmin', 'admin'] },
-    { icon: BookOpen, label: 'Classes', path: '/dashboard/classes', roles: ['superadmin', 'admin'] },
-    { icon: CalendarCheck, label: 'Attendance', path: '/dashboard/attendance', roles: ['superadmin', 'admin', 'teacher'] },
-    { icon: GraduationCap, label: 'Grading', path: '/dashboard/grading', roles: ['superadmin', 'admin', 'teacher', 'student'] },
-    { icon: MessageSquare, label: 'Messages', path: '/dashboard/messages', roles: ['superadmin', 'admin', 'teacher', 'student', 'parent'] },
-    { icon: SettingsIcon, label: 'Settings', path: '/dashboard/settings', roles: ['superadmin', 'admin'] },
+  if (role === 'superadmin' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/')) {
+    return <Navigate to="/superadmin" replace />;
+  }
+
+  const superAdminMenu = [
+    { icon: LayoutDashboard, label: t('Platform Overview'), path: '/superadmin', roles: ['superadmin'] },
+    { icon: Building, label: t('Tenant Schools'), path: '/superadmin/schools', roles: ['superadmin'] },
+    { icon: Users, label: t('Global Admins'), path: '/superadmin/users', roles: ['superadmin'] },
+    { icon: SettingsIcon, label: t('Global Settings'), path: '/superadmin/settings', roles: ['superadmin'] },
   ];
 
-  const filteredMenu = menuItems.filter(item => item.roles.includes(role || ''));
+  const genericMenu = [
+    { icon: LayoutDashboard, label: t('Overview'), path: '/dashboard', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: BookOpen, label: t('Subjects'), path: '/dashboard/subjects', roles: ['admin', 'teacher'] },
+    { icon: Users, label: t('Admissions'), path: '/dashboard/users', roles: ['admin'] },
+    { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['admin'] },
+    { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
+    { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: GraduationCap, label: t('Grading'), path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
+    { icon: MessageSquare, label: t('Messages'), path: '/dashboard/messages', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: SettingsIcon, label: t('My Profile'), path: '/dashboard/profile', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: SettingsIcon, label: t('School Settings'), path: '/dashboard/settings', roles: ['admin'] },
+  ];
+
+  // Let superadmins see all generic school modules so they can test/demo them
+  const menuItems = role === 'superadmin' ? [...superAdminMenu, ...genericMenu] : genericMenu;
+  const filteredMenu = menuItems.filter(item => item.roles.includes(role || '') || role === 'superadmin');
 
   return (
     <div className="pt-20 min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors duration-300">
@@ -65,8 +84,28 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <aside className={`fixed lg:sticky top-20 h-[calc(100vh-5rem)] w-64 bg-white dark:bg-gray-900 border-${dir === 'ltr' ? 'r' : 'l'} border-gray-100 dark:border-gray-800 flex-shrink-0 z-50 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-6 overflow-y-auto h-full">
+      <aside className={`fixed lg:sticky top-20 h-[calc(100vh-5rem)] w-64 bg-white dark:bg-gray-900 border-${dir === 'ltr' ? 'r' : 'l'} border-gray-100 dark:border-gray-800 flex-shrink-0 z-50 transition-transform duration-300 flex flex-col ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        
+        {/* School Info */}
+        <div className="p-6 border-b border-gray-100 dark:border-gray-800">
+           <div className="flex items-center gap-3">
+              {schoolData?.logoUrl ? (
+                <img src={schoolData.logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover" />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600">
+                  <Building className="w-5 h-5" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                  {schoolData?.name || schoolData?.schoolName || (role === 'superadmin' ? 'Global Platform' : 'My School')}
+                </div>
+                <div className="text-xs text-gray-500 truncate capitalize">{role}</div>
+              </div>
+           </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1">
           <div className="space-y-2">
             {filteredMenu.map((item, index) => (
               <Link
@@ -104,8 +143,11 @@ export default function Dashboard() {
           <Route path="classes" element={<Classes />} />
           <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
+          <Route path="subjects" element={<Subjects />} />
+          <Route path="homeworks" element={<Homeworks />} />
           <Route path="grading" element={<div>Grading Feature (Coming Soon)</div>} />
           <Route path="messages" element={<div>Messages Feature (Coming Soon)</div>} />
+          <Route path="profile" element={<ProfileSettings />} />
           <Route path="settings" element={<Settings />} />
         </Routes>
       </div>
@@ -116,20 +158,21 @@ export default function Dashboard() {
 function Overview() {
   const { user, role } = useAuth();
   const { primaryColor } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back, {user?.displayName || user?.email}</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">Here's what's happening in your school today.</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('Welcome back')}, {user?.displayName || user?.email}</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">{t('Here\'s what\'s happening in your school today.')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Active Students', value: '1,234', icon: Users, color: 'blue' },
-          { label: 'Staff Members', value: '86', icon: ShieldCheck, color: 'green' },
-          { label: 'Classes Today', value: '42', icon: GraduationCap, color: 'purple' },
-          { label: 'Unread Messages', value: '12', icon: MessageSquare, color: 'amber' },
+          { label: t('Active Students'), value: '1,234', icon: Users, color: 'blue' },
+          { label: t('Staff Members'), value: '86', icon: ShieldCheck, color: 'green' },
+          { label: t('Classes Today'), value: '42', icon: GraduationCap, color: 'purple' },
+          { label: t('Unread Messages'), value: '12', icon: MessageSquare, color: 'amber' },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -148,7 +191,7 @@ function Overview() {
       </div>
 
       <div className="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800">
-         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Recent Activity</h2>
+         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">{t('Recent Activity')}</h2>
          <div className="space-y-6">
             {[1, 2, 3].map(i => (
               <div key={i} className="flex gap-4 items-center">
@@ -156,8 +199,8 @@ function Overview() {
                     <Users className="w-5 h-5" />
                  </div>
                  <div>
-                    <div className="text-sm font-bold text-gray-900 dark:text-white">New admission processed</div>
-                    <div className="text-xs text-gray-500">2 hours ago</div>
+                    <div className="text-sm font-bold text-gray-900 dark:text-white">{t('New admission processed')}</div>
+                    <div className="text-xs text-gray-500">{t('2 hours ago')}</div>
                  </div>
               </div>
             ))}

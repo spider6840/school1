@@ -8,9 +8,9 @@ import { motion } from 'motion/react';
 import { Settings as SettingsIcon, Save, Building, Palette, Globe, DollarSign, Image as ImageIcon } from 'lucide-react';
 
 export default function Settings() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, schoolId } = useAuth();
   const { primaryColor, setPrimaryColor } = useTheme();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,22 +22,48 @@ export default function Settings() {
     currency: 'USD',
     themeColor: primaryColor,
     defaultLanguage: language,
+    levels: {
+      nursery: { enabled: true, years: 2 },
+      primary: { enabled: true, years: 6 },
+      middle: { enabled: true, years: 3 },
+      high: { enabled: true, years: 3 }
+    }
   });
+
+  const getDocRef = () => {
+    if (isSuperAdmin) {
+      return doc(db, 'settings', 'general');
+    } else if (schoolId) {
+      return doc(db, 'schools', schoolId);
+    }
+    return null;
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'general');
+        const docRef = getDocRef();
+        if (!docRef) {
+          setLoading(false);
+          return;
+        }
+        
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
           const data = docSnap.data();
           setFormData({
-            schoolName: data.schoolName || '',
+            schoolName: data.schoolName || data.name || '',
             logoUrl: data.logoUrl || '',
             currency: data.currency || 'USD',
             themeColor: data.themeColor || primaryColor,
             defaultLanguage: data.defaultLanguage || language,
+            levels: data.levels || {
+              nursery: { enabled: true, years: 2 },
+              primary: { enabled: true, years: 6 },
+              middle: { enabled: true, years: 3 },
+              high: { enabled: true, years: 3 }
+            }
           });
           // Apply loaded settings immediately if they differ
           if (data.themeColor && data.themeColor !== primaryColor) {
@@ -57,7 +83,7 @@ export default function Settings() {
     if (isAdmin) {
       fetchSettings();
     }
-  }, [isAdmin]);
+  }, [isAdmin, isSuperAdmin, schoolId]);
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,10 +91,25 @@ export default function Settings() {
     setSuccessMsg('');
     
     try {
-      await setDoc(doc(db, 'settings', 'general'), {
-        ...formData,
+      const docRef = getDocRef();
+      if (!docRef) throw new Error("No document reference to save to");
+
+      const dataToSave: any = {
+        logoUrl: formData.logoUrl,
+        currency: formData.currency,
+        themeColor: formData.themeColor,
+        defaultLanguage: formData.defaultLanguage,
+        levels: formData.levels,
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      };
+      
+      if (isSuperAdmin) {
+        dataToSave.schoolName = formData.schoolName;
+      } else {
+        dataToSave.name = formData.schoolName;
+      }
+
+      await setDoc(docRef, dataToSave, { merge: true });
       
       // Apply theme/language changes globally in the app
       setPrimaryColor(formData.themeColor);
@@ -101,9 +142,9 @@ export default function Settings() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
           <SettingsIcon className="w-8 h-8 text-gray-400" />
-          School Settings
+          {isSuperAdmin ? t('Global Settings') : t('School Settings')}
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">Manage your institution's profile, preferences, and branding.</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">{isSuperAdmin ? t('Manage the platform\'s global branding and preferences.') : t('Manage your institution\'s profile, preferences, and branding.')}</p>
       </div>
 
       <motion.div
@@ -139,21 +180,72 @@ export default function Settings() {
               </div>
               
               <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Logo URL</label>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Logo</label>
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <ImageIcon className="w-5 h-5" />
-                  </div>
-                  <input
-                    type="url"
-                    value={formData.logoUrl}
-                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full pl-12 pr-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none"
-                    style={{ '--tw-ring-color': primaryColor } as any}
-                  />
+                  <label className="flex items-center gap-2 cursor-pointer w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-4 focus-within:ring-2 focus-within:ring-blue-500 transition-all text-gray-500 overflow-hidden relative text-sm">
+                    <span className="truncate">{formData.logoUrl ? 'Logo Selected' : 'Choose an image...'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setFormData({ ...formData, logoUrl: reader.result as string });
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-4">
+              <Building className="w-5 h-5 text-gray-400" /> Academic Levels
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+              {(['nursery', 'primary', 'middle', 'high'] as const).map(level => (
+                <div key={level} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-sm font-bold capitalize text-gray-700 dark:text-gray-300">{level}</label>
+                    <input 
+                      type="checkbox" 
+                      checked={formData.levels[level]?.enabled}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        levels: {
+                          ...formData.levels,
+                          [level]: { ...formData.levels[level], enabled: e.target.checked }
+                        }
+                      })}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Duration (Years)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      disabled={!formData.levels[level]?.enabled}
+                      value={formData.levels[level]?.years || 1}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        levels: {
+                          ...formData.levels,
+                          [level]: { ...formData.levels[level], years: parseInt(e.target.value) || 1 }
+                        }
+                      })}
+                      className="w-full px-4 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-2 outline-none disabled:opacity-50"
+                      style={{ '--tw-ring-color': primaryColor } as any}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

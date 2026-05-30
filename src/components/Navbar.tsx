@@ -26,7 +26,7 @@ export default function Navbar() {
             <Link to="/" className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">{t('home')}</Link>
             <Link to="/contact" className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">{t('contact')}</Link>
             {user && (
-              <Link to="/dashboard" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">
+              <Link to={role === 'superadmin' ? '/superadmin' : '/dashboard'} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">
                 <LayoutDashboard className="w-4 h-4" />
                 Dashboard
               </Link>

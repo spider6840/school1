@@ -11,6 +11,8 @@ interface School {
   name: string;
   address: string;
   contactEmail: string;
+  logoUrl?: string;
+  currency?: string;
   createdAt: any;
 }
 
@@ -24,6 +26,8 @@ export default function Schools() {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
     fetchSchools();
@@ -50,11 +54,15 @@ export default function Schools() {
         name,
         address,
         contactEmail,
+        logoUrl,
+        currency,
         createdAt: serverTimestamp()
       });
       setName('');
       setAddress('');
       setContactEmail('');
+      setLogoUrl('');
+      setCurrency('USD');
       setShowAdd(false);
       fetchSchools();
     } catch (e: any) {
@@ -139,6 +147,37 @@ export default function Schools() {
                     className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-white"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Logo</label>
+                  <label className="flex items-center gap-2 cursor-pointer w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 transition-all text-gray-500 overflow-hidden relative text-sm">
+                    <span className="truncate">{logoUrl ? 'Logo Selected' : 'Choose an image...'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setLogoUrl(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-900 dark:text-white"
+                  >
+                     <option value="USD">USD ($)</option>
+                     <option value="EUR">EUR (€)</option>
+                     <option value="MAD">MAD (DH)</option>
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end gap-3">
                 <button
@@ -172,8 +211,12 @@ export default function Schools() {
           schools.map(school => (
             <div key={school.id} className="bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600">
-                  <Building className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 overflow-hidden">
+                  {school.logoUrl ? (
+                    <img src={school.logoUrl} alt={school.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Building className="w-6 h-6" />
+                  )}
                 </div>
                 <button onClick={() => handleDelete(school.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                   <Trash2 className="w-5 h-5" />

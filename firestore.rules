@@ -46,12 +46,17 @@ service cloud.firestore {
              data.uid is string && data.uid.size() <= 128 &&
              data.email is string && data.email.size() <= 200 &&
              data.name is string && data.name.size() <= 200 &&
-             data.role in ['admin', 'teacher', 'student', 'parent'] &&
+             data.role in ['superadmin', 'admin', 'teacher', 'student', 'parent'] &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }
 
     // --- Collection Rules ---
+
+    match /schools/{schoolId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
 
     // Admins Collection
     match /admins/{adminId} {
@@ -72,10 +77,40 @@ service cloud.firestore {
       allow update: if (isAdmin() || (isUserWithId(userId) && isEmailVerified())) && 
                     isValidUser(incoming()) &&
                     incoming().uid == userId &&
-                    incoming().role == existing().role &&
+                    (isAdmin() ? true : incoming().role == existing().role) &&
                     incoming().createdAt == existing().createdAt &&
                     incoming().updatedAt == request.time;
       allow delete: if isAdmin();
+    }
+
+    // Subjects Collection
+    match /subjects/{subjectId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
+    }
+
+    // Homeworks Collection
+    match /homeworks/{homeworkId} {
+      allow read: if isEmailVerified(); // Note: Client should query by classId
+      allow write: if isEmailVerified() && (
+        isAdmin() || 
+        get(/databases/$(database)/documents/classes/$(request.resource.data.classId || resource.data.classId)).data.teacherId == request.auth.uid
+      );
+    }
+
+    // Homework Submissions Collection
+    match /homework_submissions/{submissionId} {
+      allow read: if isEmailVerified() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        get(/databases/$(database)/documents/classes/$(get(/databases/$(database)/documents/homeworks/$(resource.data.homeworkId)).data.classId)).data.teacherId == request.auth.uid
+      );
+      allow create: if isEmailVerified() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isEmailVerified() && (
+        resource.data.studentId == request.auth.uid ||
+        isAdmin() ||
+        get(/databases/$(database)/documents/classes/$(get(/databases/$(database)/documents/homeworks/$(resource.data.homeworkId)).data.classId)).data.teacherId == request.auth.uid
+      );
     }
 
     // Classes Collection
