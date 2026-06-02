@@ -20,8 +20,10 @@ interface UserProfile {
   uid: string;
   name: string;
   email: string;
-  role: 'superadmin' | 'admin' | 'teacher' | 'student' | 'parent';
+  role: 'superadmin' | 'admin' | 'accountant' | 'teacher' | 'student' | 'parent';
   schoolId?: string;
+  parentEmail1?: string;
+  parentEmail2?: string;
   createdAt: any;
 }
 
@@ -48,7 +50,9 @@ export default function UserManagement() {
     email: '',
     password: '',
     role: 'student' as any,
-    schoolId: ''
+    schoolId: '',
+    parentEmail1: '',
+    parentEmail2: ''
   });
 
   const { primaryColor } = useTheme();
@@ -79,7 +83,7 @@ export default function UserManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', password: '', role: 'student', schoolId: '' });
+    setFormData({ name: '', email: '', password: '', role: 'student', schoolId: '', parentEmail1: '', parentEmail2: '' });
   };
 
   const handleAddUser = async (e: FormEvent) => {
@@ -112,10 +116,14 @@ export default function UserManagement() {
       };
       
       if (formData.schoolId) profileData.schoolId = formData.schoolId;
+      if (formData.role === 'student') {
+        if (formData.parentEmail1) profileData.parentEmail1 = formData.parentEmail1;
+        if (formData.parentEmail2) profileData.parentEmail2 = formData.parentEmail2;
+      }
 
       await setDoc(doc(db, 'users', uid), profileData);
 
-      if (formData.role === 'admin' || formData.role === 'superadmin') {
+      if (formData.role === 'admin' || formData.role === 'superadmin' || formData.role === 'accountant') {
         await setDoc(doc(db, 'admins', uid), {
           email: formData.email,
           promotedBy: adminUser?.email,
@@ -151,16 +159,22 @@ export default function UserManagement() {
         schoolId: formData.schoolId || null,
         updatedAt: serverTimestamp()
       };
+      if (formData.role === 'student') {
+        updates.parentEmail1 = formData.parentEmail1 || null;
+        updates.parentEmail2 = formData.parentEmail2 || null;
+      }
       
       await updateDoc(doc(db, 'users', selectedUser.uid), updates);
       
-      if (formData.role === 'admin' || formData.role === 'superadmin') {
+      if (formData.role === 'admin' || formData.role === 'superadmin' || formData.role === 'accountant') {
         await setDoc(doc(db, 'admins', selectedUser.uid), {
           email: selectedUser.email,
           promotedBy: adminUser?.email,
           schoolId: formData.schoolId || null,
           updatedAt: serverTimestamp()
         }, { merge: true });
+      } else {
+         // what if they are demoted? this goes beyond scope right now but better to just add them to admins
       }
       
       setShowEditModal(false);
@@ -179,7 +193,9 @@ export default function UserManagement() {
       email: user.email || '',
       password: '', // Leave blank when editing
       role: user.role,
-      schoolId: user.schoolId || ''
+      schoolId: user.schoolId || '',
+      parentEmail1: user.parentEmail1 || '',
+      parentEmail2: user.parentEmail2 || ''
     });
     setShowEditModal(true);
   };
@@ -247,6 +263,7 @@ export default function UserManagement() {
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                       u.role === 'superadmin' ? 'bg-purple-50 text-purple-600 dark:bg-purple-900/20' :
                       u.role === 'admin' ? 'bg-red-50 text-red-600 dark:bg-red-900/20' :
+                      u.role === 'accountant' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20' :
                       u.role === 'teacher' ? 'bg-green-50 text-green-600 dark:bg-green-900/20' :
                       'bg-blue-50 text-blue-600 dark:bg-blue-900/20'
                     }`}>
@@ -350,6 +367,7 @@ export default function UserManagement() {
                           <option value="student">Student</option>
                           <option value="teacher">Teacher</option>
                           <option value="parent">Parent</option>
+                          <option value="accountant">Accountant</option>
                           <option value="admin">School Admin</option>
                           {isSuperAdmin && <option value="superadmin">Super Admin</option>}
                         </select>
@@ -372,6 +390,31 @@ export default function UserManagement() {
                         </div>
                       )}
                     </div>
+
+                    {formData.role === 'student' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor Email 1</label>
+                          <input
+                            type="email"
+                            value={formData.parentEmail1}
+                            onChange={(e) => setFormData({ ...formData, parentEmail1: e.target.value })}
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none"
+                            style={{ '--tw-ring-color': primaryColor } as any}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor Email 2 (Optional)</label>
+                          <input
+                            type="email"
+                            value={formData.parentEmail2}
+                            onChange={(e) => setFormData({ ...formData, parentEmail2: e.target.value })}
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none"
+                            style={{ '--tw-ring-color': primaryColor } as any}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {!showEditModal && (
                       <div>

@@ -76,6 +76,15 @@ export const translations: Translations = {
     en: 'Manage the platform\'s global branding and preferences.',
     fr: 'Gérez la marque et les préférences globales de la plateforme.',
     ar: 'إدارة العلامة التجارية والتفضيلات العالمية للمنصة.'
+  },
+  'Subscriptions': { en: 'Subscriptions', fr: 'Inscriptions', ar: 'الاشتراكات' },
+  'Users': { en: 'Users', fr: 'Utilisateurs', ar: 'المستخدمون' },
+  'Accountant': { en: 'Accountant', fr: 'Comptable', ar: 'محاسب' },
+  'Subscriptions & Payments': { en: 'Subscriptions & Payments', fr: 'Inscriptions & Paiements', ar: 'الاشتراكات والمدفوعات' },
+  'Manage student inscriptions and financial tracking': { 
+    en: 'Manage student inscriptions and financial tracking', 
+    fr: 'Gérer les inscriptions des étudiants et le suivi financier', 
+    ar: 'إدارة تسجيل الطلاب والتتبع المالي' 
   }
 };
 

@@ -20,8 +20,13 @@ export default function Auth() {
     try {
       await login();
       navigate('/dashboard');
-    } catch (error) {
-      console.error("Login failed:", error);
+    } catch (err: any) {
+      if (err.code === 'auth/network-request-failed' || err.message?.includes('network-request-failed') || err.code === 'auth/popup-blocked') {
+        setError('Network error/Popup blocked: Please open the app in a new tab or disable adblockers.');
+      } else {
+        setError(err.message || 'Google login failed.');
+      }
+      console.error("Login failed:", err);
     }
   };
 
@@ -33,7 +38,11 @@ export default function Auth() {
       await emailLogin(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password.');
+      if (err.code === 'auth/network-request-failed' || err.message?.includes('network-request-failed')) {
+        setError('Network error: Login was blocked. Try opening the app in a new tab, or disable adblockers/strict privacy shields.');
+      } else {
+        setError(err.message || 'Invalid email or password.');
+      }
       console.error(err);
     } finally {
       setLoading(false);

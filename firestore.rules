@@ -46,7 +46,7 @@ service cloud.firestore {
              data.uid is string && data.uid.size() <= 128 &&
              data.email is string && data.email.size() <= 200 &&
              data.name is string && data.name.size() <= 200 &&
-             data.role in ['superadmin', 'admin', 'teacher', 'student', 'parent'] &&
+             data.role in ['superadmin', 'admin', 'accountant', 'teacher', 'student', 'parent'] &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }
@@ -149,6 +149,24 @@ service cloud.firestore {
         isAdmin() || 
         get(/databases/$(database)/documents/classes/$(incoming().classId)).data.teacherId == request.auth.uid
       );
+    }
+
+    // Subscriptions Collection
+    match /subscriptions/{subscriptionId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
+    }
+
+    // Payments Collection
+    match /payments/{paymentId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin(); // only admins/accountants can write payments
+    }
+
+    // Services Collection
+    match /services/{serviceId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
     }
 
     // Messages Collection

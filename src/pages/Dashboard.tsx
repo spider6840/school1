@@ -15,7 +15,8 @@ import {
   Settings as SettingsIcon,
   Building,
   Menu,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
@@ -26,6 +27,7 @@ import ProfileSettings from './dashboard/ProfileSettings';
 import Schools from './dashboard/Schools';
 import Subjects from './dashboard/Subjects';
 import Homeworks from './dashboard/Homeworks';
+import Subscriptions from './dashboard/Subscriptions';
 
 export default function Dashboard() {
   const { user, role, isAdmin, isSuperAdmin, schoolData } = useAuth();
@@ -51,15 +53,16 @@ export default function Dashboard() {
   ];
 
   const genericMenu = [
-    { icon: LayoutDashboard, label: t('Overview'), path: '/dashboard', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: LayoutDashboard, label: t('Overview'), path: '/dashboard', roles: ['admin', 'accountant', 'teacher', 'student', 'parent'] },
     { icon: BookOpen, label: t('Subjects'), path: '/dashboard/subjects', roles: ['admin', 'teacher'] },
-    { icon: Users, label: t('Admissions'), path: '/dashboard/users', roles: ['admin'] },
+    { icon: Users, label: t('Users'), path: '/dashboard/users', roles: ['admin'] },
+    { icon: FileText, label: t('Subscriptions'), path: '/dashboard/subscriptions', roles: ['admin', 'accountant'] },
     { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['admin'] },
     { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
     { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
     { icon: GraduationCap, label: t('Grading'), path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
     { icon: MessageSquare, label: t('Messages'), path: '/dashboard/messages', roles: ['admin', 'teacher', 'student', 'parent'] },
-    { icon: SettingsIcon, label: t('My Profile'), path: '/dashboard/profile', roles: ['admin', 'teacher', 'student', 'parent'] },
+    { icon: SettingsIcon, label: t('My Profile'), path: '/dashboard/profile', roles: ['admin', 'accountant', 'teacher', 'student', 'parent'] },
     { icon: SettingsIcon, label: t('School Settings'), path: '/dashboard/settings', roles: ['admin'] },
   ];
 
@@ -140,6 +143,7 @@ export default function Dashboard() {
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="users" element={<UserManagement />} />
+          <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="classes" element={<Classes />} />
           <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
