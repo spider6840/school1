@@ -37,12 +37,18 @@ interface Payment {
 interface Class { 
   id: string; 
   name: string; 
-  prices?: { education: number; canteen: number; transport: number; }; 
+  level?: string;
+  prices?: { education: number; canteen: number; transport: number; };
+  seasons?: Record<string, {
+    education?: number;
+    canteen?: { full?: number; lunch?: number; breakfast?: number } | number;
+    transport?: { round_trip?: number; morning?: number; return?: number } | number;
+  }>;
 }
 interface User { uid: string; name: string; parentEmail1?: string; parentEmail2?: string; }
 
 export default function Subscriptions() {
-  const { schoolId, role, schoolData } = useAuth();
+  const { schoolId, tenantId, role, schoolData } = useAuth();
   const { t } = useLanguage();
   const { primaryColor } = useTheme();
 
@@ -84,8 +90,9 @@ export default function Subscriptions() {
       const tr = sub.services.transport as any;
 
       // Fallback to class prices if level prices are not defined
+      const seasonPrices = cls.seasons?.[sub.season] || null;
       const levelPrices = cls.level ? schoolData?.levels?.[cls.level]?.prices : null;
-      const basePrices = levelPrices || cls.prices || { education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } };
+      const basePrices = seasonPrices || levelPrices || cls.prices || { education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } };
       
       if (ed === true || ed?.enabled) total += (basePrices.education || 0) - (ed?.discount || 0);
       if (ca === true || ca?.enabled) {
@@ -117,34 +124,63 @@ export default function Subscriptions() {
   };
 
   useEffect(() => {
-    if (schoolId) {
+    if (schoolId || role === 'superadmin' || role === 'group_admin') {
       fetchCoreData();
     }
-  }, [schoolId]);
+  }, [schoolId, role]);
 
   const fetchCoreData = async () => {
     try {
       setLoading(true);
+      
+      let schoolIdsToFetch = schoolId ? [schoolId] : [];
+      if (role === 'group_admin' && tenantId) {
+        const sSnap = await getDocs(query(collection(db, 'schools'), where('tenantId', '==', tenantId)));
+        schoolIdsToFetch = sSnap.docs.map(d => d.id);
+      }
+      
+      // If group_admin has no schools, return early
+      if (role === 'group_admin' && schoolIdsToFetch.length === 0) {
+         setClasses({}); setStudents({}); setSubscriptions([]); setPayments({});
+         return;
+      }
+
       // Fetch classes
-      const clsSnap = await getDocs(query(collection(db, 'classes'), where('schoolId', '==', schoolId)));
+      let clsQuery = collection(db, 'classes') as any;
+      if (schoolId) clsQuery = query(clsQuery, where('schoolId', '==', schoolId));
+      else if (role === 'group_admin') clsQuery = query(clsQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+      
+      const clsSnap = await getDocs(clsQuery);
       const clsMap: Record<string, Class> = {};
       clsSnap.forEach(d => clsMap[d.id] = { id: d.id, ...d.data() } as Class);
       setClasses(clsMap);
 
       // Fetch students
-      const stuSnap = await getDocs(query(collection(db, 'users'), where('schoolId', '==', schoolId), where('role', '==', 'student')));
+      let stuQuery = query(collection(db, 'users'), where('role', '==', 'student')) as any;
+      if (schoolId) stuQuery = query(stuQuery, where('schoolId', '==', schoolId));
+      else if (role === 'group_admin') stuQuery = query(stuQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+
+      const stuSnap = await getDocs(stuQuery);
       const stuMap: Record<string, User> = {};
       stuSnap.forEach(d => stuMap[d.id] = { uid: d.id, ...d.data() } as User);
       setStudents(stuMap);
 
       // Fetch subscriptions
-      const subSnap = await getDocs(query(collection(db, 'subscriptions'), where('schoolId', '==', schoolId)));
+      let subQuery = collection(db, 'subscriptions') as any;
+      if (schoolId) subQuery = query(subQuery, where('schoolId', '==', schoolId));
+      else if (role === 'group_admin') subQuery = query(subQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+
+      const subSnap = await getDocs(subQuery);
       const subList: Subscription[] = [];
       subSnap.forEach(d => subList.push({ id: d.id, ...d.data() } as Subscription));
       setSubscriptions(subList);
 
       // Fetch payments
-      const paySnap = await getDocs(query(collection(db, 'payments'), where('schoolId', '==', schoolId)));
+      let payQuery = collection(db, 'payments') as any;
+      if (schoolId) payQuery = query(payQuery, where('schoolId', '==', schoolId));
+      else if (role === 'group_admin') payQuery = query(payQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+
+      const paySnap = await getDocs(payQuery);
       const pMap: Record<string, Payment[]> = {};
       paySnap.forEach(d => {
         const p = { id: d.id, ...d.data() } as Payment;
@@ -450,58 +486,107 @@ export default function Subscriptions() {
                                   const printWindow = window.open('', '_blank');
                                   if (printWindow) {
                                     const logoHtml = schoolData?.logoUrl 
-                                      ? `<img src="${schoolData.logoUrl}" alt="Logo" style="height: 50px; object-fit: contain;">`
-                                      : `<div class="logo">${schoolData?.name || 'ACMS'}</div>`;
+                                      ? `<img src="${schoolData.logoUrl}" alt="School Logo" style="max-height: 80px; max-width: 200px; object-fit: contain;">`
+                                      : `<h2 style="color:${primaryColor}; margin:0; font-size: 28px; text-transform: uppercase;">${schoolData?.name || 'School Name'}</h2>`;
 
                                     printWindow.document.write(`
+                                      <!DOCTYPE html>
                                       <html>
                                         <head>
-                                          <title>Receipt - ${p.reference || 'Payment'}</title>
+                                          <title>Receipt_PDF_${p.reference || p.id}</title>
                                           <style>
-                                            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-                                            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }
-                                            .logo { font-size: 24px; font-weight: bold; color: ${primaryColor || '#4f46e5'}; }
-                                            .receipt-title { font-size: 28px; font-weight: bold; color: #555; text-transform: uppercase; letter-spacing: 2px; }
-                                            .row { display: flex; margin-bottom: 15px; }
-                                            .col { flex: 1; }
-                                            .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 4px; font-weight: bold; }
-                                            .value { font-size: 16px; font-weight: 500; }
-                                            .amount-box { background: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; margin-top: 30px; border: 1px solid #e2e8f0; }
-                                            .amount-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
-                                            .amount-value { font-size: 36px; font-weight: bold; color: #0f172a; margin-top: 5px; }
-                                            @media print { body { padding: 0; } .action-buttons { display: none !important; } }
+                                            @page { size: A4 portrait; margin: 0; }
+                                            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 40px; color: #1e293b; background: white; -webkit-print-color-adjust: exact; color-adjust: exact; print-color-adjust: exact; }
+                                            .container { max-width: 800px; margin: 0 auto; box-sizing: border-box; }
+                                            .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 30px; border-bottom: 2px solid #f1f5f9; margin-bottom: 40px; }
+                                            .receipt-title { font-size: 32px; font-weight: 800; color: ${primaryColor || '#4f46e5'}; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1; }
+                                            .receipt-subtitle { font-size: 14px; color: #64748b; margin-top: 8px; font-weight: 600; }
+                                            
+                                            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px; }
+                                            .item-group { background: #f8fafc; padding: 15px 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+                                            .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin-bottom: 6px; font-weight: 700; }
+                                            .value { font-size: 15px; font-weight: 600; color: #0f172a; }
+                                            
+                                            .amount-box { background: ${primaryColor || '#4f46e5'}; padding: 30px; border-radius: 16px; text-align: center; margin-top: 40px; color: white; display: flex; justify-content: space-between; align-items: center; }
+                                            .amount-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; opacity: 0.9; }
+                                            .amount-value { font-size: 42px; font-weight: 900; }
+                                            
+                                            .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+                                            .stamp { font-size: 18px; font-weight: bold; color: #10b981; border: 3px solid #10b981; border-radius: 8px; padding: 10px 20px; display: inline-block; transform: rotate(-10deg); margin-top: 30px; }
+                                            
+                                            .action-buttons { text-align: right; margin-bottom: 30px; background: #f8fafc; padding: 15px; border-radius: 12px; }
+                                            .print-btn { padding: 12px 24px; background: ${primaryColor || '#4f46e5'}; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                                            .print-btn:hover { opacity: 0.9; }
+                                            @media print { 
+                                              body { padding: 20px; }
+                                              .action-buttons { display: none !important; } 
+                                              .container { width: 100%; max-width: none; }
+                                              .item-group { break-inside: avoid; }
+                                            }
                                           </style>
                                         </head>
                                         <body>
-                                          <div class="action-buttons" style="text-align: right; margin-bottom: 20px;">
-                                            <button onclick="window.print()" style="padding: 10px 20px; background: ${primaryColor || '#4f46e5'}; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Print PDF</button>
-                                          </div>
-                                          <div class="header">
-                                            ${logoHtml}
-                                            <div class="receipt-title">Payment Receipt</div>
-                                          </div>
-                                          <div class="row">
-                                            <div class="col"><div class="label">Date</div><div class="value">${new Date().toLocaleDateString()}</div></div>
-                                            <div class="col"><div class="label">Reference</div><div class="value">${p.reference || 'N/A'}</div></div>
-                                          </div>
-                                          <div class="row">
-                                            <div class="col"><div class="label">Student</div><div class="value">${stu?.name || 'N/A'}</div></div>
-                                            <div class="col"><div class="label">Class & Season</div><div class="value">${cls?.name || 'N/A'} - ${sub.season || 'N/A'}</div></div>
-                                          </div>
-                                          <div class="row">
-                                            <div class="col"><div class="label">Payer Name</div><div class="value">${p.payerName || 'N/A'}</div></div>
-                                            <div class="col"><div class="label">Paid Period/Month</div><div class="value">${p.period || 'N/A'}</div></div>
-                                          </div>
-                                          <div class="row">
-                                            <div class="col"><div class="label">Payment Mode</div><div class="value" style="text-transform: capitalize;">${p.type || 'Cash'}</div></div>
-                                            <div class="col"><div class="label">Status</div><div class="value" style="text-transform:capitalize;">${p.status}</div></div>
-                                          </div>
-                                          <div class="amount-box">
-                                            <div class="amount-label">Amount Paid</div>
-                                            <div class="amount-value">$${p.amount?.toFixed(2) || '0.00'}</div>
-                                          </div>
-                                          <div style="margin-top: 60px; font-size: 12px; color: #94a3b8; text-align: center;">
-                                            This is an automatically generated receipt. Thank you for your payment.
+                                          <div class="container">
+                                            <div class="action-buttons">
+                                              <button class="print-btn" onclick="window.print()">Print or Save as PDF</button>
+                                              <div style="font-size:12px; color:#64748b; margin-top:10px;">Select 'Save as PDF' in the print dialog.</div>
+                                            </div>
+                                            
+                                            <div class="header">
+                                              <div>
+                                                ${logoHtml}
+                                                <div style="margin-top:20px; color:#64748b; font-size:14px; font-weight:500;">
+                                                  ${schoolData?.name || 'Academic Institution'}<br/>
+                                                  Invoice No. #${p.reference || p.id.substring(0,8)}<br/>
+                                                  Date: ${new Date().toLocaleDateString()}
+                                                </div>
+                                              </div>
+                                              <div style="text-align: right;">
+                                                <h1 class="receipt-title">RECEIPT</h1>
+                                                <div class="receipt-subtitle">Official Payment Record</div>
+                                              </div>
+                                            </div>
+                                            
+                                            <div class="grid">
+                                              <div class="item-group">
+                                                <div class="label">Received From</div>
+                                                <div class="value">${p.payerName || 'N/A'}</div>
+                                              </div>
+                                              <div class="item-group">
+                                                <div class="label">For Student</div>
+                                                <div class="value">${stu?.name || 'N/A'}</div>
+                                              </div>
+                                              <div class="item-group">
+                                                <div class="label">Academic Season & Class</div>
+                                                <div class="value">${sub.season || 'N/A'} — ${cls?.name || 'N/A'}</div>
+                                              </div>
+                                              <div class="item-group">
+                                                <div class="label">Paid Period / Month</div>
+                                                <div class="value">${p.period || 'N/A'}</div>
+                                              </div>
+                                              <div class="item-group">
+                                                <div class="label">Payment Method</div>
+                                                <div class="value" style="text-transform: capitalize;">${p.type || 'Cash'}</div>
+                                              </div>
+                                              <div class="item-group">
+                                                <div class="label">Payment Status</div>
+                                                <div class="value" style="text-transform: uppercase;">${p.status}</div>
+                                              </div>
+                                            </div>
+                                            
+                                            <div class="amount-box">
+                                              <div class="amount-label">Total Amount Paid</div>
+                                              <div class="amount-value">$${p.amount?.toFixed(2) || '0.00'}</div>
+                                            </div>
+
+                                            <div style="text-align: right; margin-top: 10px;">
+                                              <div class="stamp">PAID / VERIFIED</div>
+                                            </div>
+                                            
+                                            <div class="footer">
+                                              This receipt is electronically generated and constitutes a valid proof of payment.<br/>
+                                              Printed on ${new Date().toLocaleString()}
+                                            </div>
                                           </div>
                                         </body>
                                       </html>

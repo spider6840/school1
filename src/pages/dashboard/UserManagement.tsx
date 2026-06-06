@@ -35,6 +35,7 @@ interface School {
 export default function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [tenants, setTenants] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,6 +52,7 @@ export default function UserManagement() {
     password: '',
     role: 'student' as any,
     schoolId: '',
+    tenantId: '',
     parentEmail1: '',
     parentEmail2: ''
   });
@@ -70,6 +72,7 @@ export default function UserManagement() {
     });
     
     fetchSchools();
+    fetchTenants();
     return () => unsubscribe();
   }, []);
 
@@ -82,8 +85,18 @@ export default function UserManagement() {
     }
   };
 
+  const fetchTenants = async () => {
+    if (!isSuperAdmin) return;
+    try {
+      const snap = await getDocs(collection(db, 'tenants'));
+      setTenants(snap.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
+    } catch (e) {
+      console.error('Error fetching tenants', e);
+    }
+  };
+
   const resetForm = () => {
-    setFormData({ name: '', email: '', password: '', role: 'student', schoolId: '', parentEmail1: '', parentEmail2: '' });
+    setFormData({ name: '', email: '', password: '', role: 'student', schoolId: '', tenantId: '', parentEmail1: '', parentEmail2: '' });
   };
 
   const handleAddUser = async (e: FormEvent) => {
@@ -115,7 +128,9 @@ export default function UserManagement() {
         updatedAt: serverTimestamp()
       };
       
-      if (formData.schoolId) profileData.schoolId = formData.schoolId;
+      if (formData.schoolId && formData.role !== 'superadmin' && formData.role !== 'group_admin') profileData.schoolId = formData.schoolId;
+      if (formData.role === 'group_admin' && formData.tenantId) profileData.tenantId = formData.tenantId;
+      
       if (formData.role === 'student') {
         if (formData.parentEmail1) profileData.parentEmail1 = formData.parentEmail1;
         if (formData.parentEmail2) profileData.parentEmail2 = formData.parentEmail2;
@@ -123,11 +138,12 @@ export default function UserManagement() {
 
       await setDoc(doc(db, 'users', uid), profileData);
 
-      if (formData.role === 'admin' || formData.role === 'superadmin' || formData.role === 'accountant') {
+      if (['admin', 'superadmin', 'accountant', 'group_admin'].includes(formData.role)) {
         await setDoc(doc(db, 'admins', uid), {
           email: formData.email,
           promotedBy: adminUser?.email,
           schoolId: formData.schoolId || null,
+          tenantId: formData.tenantId || null,
           createdAt: serverTimestamp()
         });
       }
@@ -156,7 +172,8 @@ export default function UserManagement() {
     try {
       const updates: any = {
         role: formData.role,
-        schoolId: formData.schoolId || null,
+        schoolId: formData.role === 'group_admin' || formData.role === 'superadmin' ? null : (formData.schoolId || null),
+        tenantId: formData.role === 'group_admin' ? (formData.tenantId || null) : null,
         updatedAt: serverTimestamp()
       };
       if (formData.role === 'student') {
@@ -166,15 +183,16 @@ export default function UserManagement() {
       
       await updateDoc(doc(db, 'users', selectedUser.uid), updates);
       
-      if (formData.role === 'admin' || formData.role === 'superadmin' || formData.role === 'accountant') {
+      if (['admin', 'superadmin', 'accountant', 'group_admin'].includes(formData.role)) {
         await setDoc(doc(db, 'admins', selectedUser.uid), {
           email: selectedUser.email,
           promotedBy: adminUser?.email,
-          schoolId: formData.schoolId || null,
+          schoolId: updates.schoolId,
+          tenantId: updates.tenantId,
           updatedAt: serverTimestamp()
         }, { merge: true });
       } else {
-         // what if they are demoted? this goes beyond scope right now but better to just add them to admins
+         // what if they are demoted?
       }
       
       setShowEditModal(false);
@@ -371,11 +389,16 @@ export default function UserManagement() {
                           <option value="parent">Parent</option>
                           <option value="accountant">Accountant</option>
                           <option value="admin">School Admin</option>
-                          {isSuperAdmin && <option value="superadmin">Super Admin</option>}
+                          {isSuperAdmin && (
+                            <>
+                              <option value="group_admin">School Group Admin (Tenant)</option>
+                              <option value="superadmin">Super Admin</option>
+                            </>
+                          )}
                         </select>
                       </div>
 
-                      {formData.role !== 'superadmin' && schools.length > 0 && (
+                      {formData.role !== 'superadmin' && formData.role !== 'group_admin' && schools.length > 0 && (
                         <div>
                           <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Assigned School</label>
                           <select
@@ -387,6 +410,23 @@ export default function UserManagement() {
                             <option value="">Select a school...</option>
                             {schools.map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {formData.role === 'group_admin' && tenants.length > 0 && (
+                        <div>
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Assigned School Group</label>
+                          <select
+                            value={formData.tenantId}
+                            onChange={(e) => setFormData({ ...formData, tenantId: e.target.value })}
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none appearance-none"
+                            style={{ '--tw-ring-color': primaryColor } as any}
+                          >
+                            <option value="">Select a group (tenant)...</option>
+                            {tenants.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
                           </select>
                         </div>

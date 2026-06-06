@@ -5,9 +5,10 @@ import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
-  role: 'superadmin' | 'admin' | 'teacher' | 'student' | 'parent' | null;
+  role: 'superadmin' | 'group_admin' | 'admin' | 'teacher' | 'student' | 'parent' | null;
   userData: any | null;
   schoolId: string | null;
+  tenantId: string | null;
   schoolData: any | null;
   loading: boolean;
   login: () => Promise<void>;
@@ -21,9 +22,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'superadmin' | 'admin' | 'teacher' | 'student' | 'parent' | null>(null);
+  const [role, setRole] = useState<'superadmin' | 'group_admin' | 'admin' | 'teacher' | 'student' | 'parent' | null>(null);
   const [userData, setUserData] = useState<any | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [schoolData, setSchoolData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRole(currentRole);
             setUserData(data);
             setSchoolId(data.schoolId || null);
+            setTenantId(data.tenantId || null);
             
             if (data.schoolId) {
               const schoolDoc = await getDoc(doc(db, 'schools', data.schoolId));
@@ -91,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRole(newRole);
             setUserData(newUserData);
             setSchoolId(null);
+            setTenantId(null);
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
@@ -106,11 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           setUserData(null);
           setSchoolId(null);
+          setTenantId(null);
         }
       } else {
         setRole(null);
         setUserData(null);
         setSchoolId(null);
+        setTenantId(null);
         setSchoolData(null);
       }
       setLoading(false);
@@ -137,12 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role, 
       userData,
       schoolId,
+      tenantId,
       schoolData,
       loading, 
       login, 
       emailLogin,
       logout,
-      isAdmin: role === 'admin' || role === 'superadmin',
+      isAdmin: role === 'admin' || role === 'superadmin' || role === 'group_admin',
       isSuperAdmin: role === 'superadmin'
     }}>
       {!loading && children}

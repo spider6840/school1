@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
 import Classes from './dashboard/Classes';
+import Classrooms from './dashboard/Classrooms';
 import Attendance from './dashboard/Attendance';
 import Settings from './dashboard/Settings';
 import ProfileSettings from './dashboard/ProfileSettings';
@@ -56,12 +57,13 @@ export default function Dashboard() {
   ];
 
   const genericMenu = [
-    { icon: LayoutDashboard, label: t('Overview'), path: '/dashboard', roles: ['admin', 'accountant', 'teacher', 'student', 'parent'] },
-    { icon: BookOpen, label: t('Subjects'), path: '/dashboard/subjects', roles: ['admin', 'teacher'] },
-    { icon: Users, label: t('Users'), path: '/dashboard/users', roles: ['admin'] },
-    { icon: FileText, label: t('Subscriptions'), path: '/dashboard/subscriptions', roles: ['admin', 'accountant'] },
-    { icon: DollarSign, label: t('Payments'), path: '/dashboard/payments', roles: ['admin', 'accountant'] },
-    { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['admin'] },
+    { icon: LayoutDashboard, label: t('Overview'), path: '/dashboard', roles: ['superadmin', 'group_admin', 'admin', 'accountant', 'teacher', 'student', 'parent'] },
+    { icon: BookOpen, label: t('Subjects'), path: '/dashboard/subjects', roles: ['superadmin', 'group_admin', 'admin', 'teacher'] },
+    { icon: Users, label: t('Users'), path: '/dashboard/users', roles: ['superadmin', 'group_admin', 'admin'] },
+    { icon: FileText, label: t('Subscriptions'), path: '/dashboard/subscriptions', roles: ['superadmin', 'group_admin', 'admin', 'accountant'] },
+    { icon: DollarSign, label: t('Payments'), path: '/dashboard/payments', roles: ['superadmin', 'group_admin', 'admin', 'accountant'] },
+    { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['superadmin', 'group_admin', 'admin'] },
+    { icon: Building, label: t('Classrooms'), path: '/dashboard/classrooms', roles: ['superadmin', 'group_admin', 'admin'] },
     { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
     { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
     { icon: GraduationCap, label: t('Grading'), path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
@@ -70,7 +72,6 @@ export default function Dashboard() {
     { icon: SettingsIcon, label: t('School Settings'), path: '/dashboard/settings', roles: ['admin'] },
   ];
 
-  // Let superadmins see all generic school modules so they can test/demo them
   const menuItems = role === 'superadmin' ? [...superAdminMenu, ...genericMenu] : genericMenu;
   const filteredMenu = menuItems.filter(item => item.roles.includes(role || '') || role === 'superadmin');
 
@@ -150,6 +151,7 @@ export default function Dashboard() {
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="payments" element={<Payments />} />
           <Route path="classes" element={<Classes />} />
+          <Route path="classrooms" element={<Classrooms />} />
           <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="subjects" element={<Subjects />} />

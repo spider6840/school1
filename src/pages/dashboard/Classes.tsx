@@ -12,12 +12,12 @@ interface ClassGroup {
   name: string;
   schoolId: string;
   teacherId: string;
-  level?: 'nursery' | 'primary' | 'college' | 'high_school';
-  prices?: {
-    education: number;
-    canteen: number;
-    transport: number;
-  };
+  level?: 'nursery' | 'primary' | 'middle' | 'high';
+  seasons?: Record<string, {
+    education?: number;
+    canteen?: { full?: number; lunch?: number; breakfast?: number } | number;
+    transport?: { round_trip?: number; morning?: number; return?: number } | number;
+  }>;
 }
 
 export default function Classes() {
@@ -28,21 +28,43 @@ export default function Classes() {
   
   const [name, setName] = useState('');
   const [level, setLevel] = useState<'nursery' | 'primary' | 'middle' | 'high'>('primary');
+  
+  const [currentSeason, setCurrentSeason] = useState('2025/2026');
+  const [prices, setPrices] = useState<any>({
+    education: 0,
+    canteen: { full: 0, lunch: 0, breakfast: 0 },
+    transport: { round_trip: 0, morning: 0, return: 0 }
+  });
 
   const { primaryColor } = useTheme();
-  const { isAdmin, schoolId } = useAuth();
+  const { isAdmin, role, schoolId, tenantId } = useAuth();
   const { t } = useLanguage();
 
   useEffect(() => {
-    if (schoolId) {
+    if (schoolId || role === 'superadmin' || role === 'group_admin') {
       fetchClasses();
     }
-  }, [schoolId]);
+  }, [schoolId, role]);
 
   const fetchClasses = async () => {
     try {
       setLoading(true);
-      const snap = await getDocs(query(collection(db, 'classes'), where('schoolId', '==', schoolId)));
+      let schoolIdsToFetch = schoolId ? [schoolId] : [];
+      if (role === 'group_admin' && tenantId) {
+        const sSnap = await getDocs(query(collection(db, 'schools'), where('tenantId', '==', tenantId)));
+        schoolIdsToFetch = sSnap.docs.map(d => d.id);
+      }
+      
+      if (role === 'group_admin' && schoolIdsToFetch.length === 0) {
+         setClasses([]);
+         return;
+      }
+
+      let clsQuery = collection(db, 'classes') as any;
+      if (schoolId) clsQuery = query(clsQuery, where('schoolId', '==', schoolId));
+      else if (role === 'group_admin') clsQuery = query(clsQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+      
+      const snap = await getDocs(clsQuery);
       setClasses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClassGroup)));
     } catch (e: any) {
       console.error(e);
@@ -55,6 +77,7 @@ export default function Classes() {
   const openAdd = () => {
     setName('');
     setLevel('primary');
+    setPrices({ education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } });
     setEditingClass(null);
     setShowAdd(true);
   };
@@ -62,21 +85,40 @@ export default function Classes() {
   const openEdit = (c: ClassGroup) => {
     setName(c.name);
     setLevel(c.level as any || 'primary');
+    const seasonPrices = c.seasons?.[currentSeason] || { education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } };
+    
+    // Normalize old flat formats to objects if they exist
+    setPrices({
+       education: seasonPrices.education || 0,
+       canteen: typeof seasonPrices.canteen === 'object' ? seasonPrices.canteen : { full: Number(seasonPrices.canteen) || 0, lunch: 0, breakfast: 0 },
+       transport: typeof seasonPrices.transport === 'object' ? seasonPrices.transport : { round_trip: Number(seasonPrices.transport) || 0, morning: 0, return: 0 },
+    });
     setEditingClass(c);
     setShowAdd(true);
   };
 
   const saveClass = async () => {
-    if (!name.trim() || !schoolId) return;
+    // Determine the working school ID for saving. Must be an admin/superadmin with context
+    // If superadmin creates it, they'd ideally select a school, but we'll use schoolId if available
+    if (!name.trim()) return;
+    
+    // Quick validation
+    const targetSchoolId = editingClass?.schoolId || schoolId;
+    if (!targetSchoolId) {
+      alert("Please select a school context to create a class.");
+      return;
+    }
+
     try {
+      const existingSeasons = editingClass?.seasons || {};
+      
       const classData = {
         name,
-        schoolId,
+        schoolId: targetSchoolId,
         level,
-        prices: {
-          education: 0,
-          canteen: 0,
-          transport: 0
+        seasons: {
+          ...existingSeasons,
+           [currentSeason]: prices
         }
       };
 
@@ -145,16 +187,20 @@ export default function Classes() {
                  
                  <div className="space-y-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
                    <div className="flex justify-between text-sm">
+                     <span className="text-gray-500">{t('Season')}</span>
+                     <span className="font-bold font-mono">{currentSeason}</span>
+                   </div>
+                   <div className="flex justify-between text-sm">
                      <span className="text-gray-500">{t('Education')}</span>
-                     <span className="font-bold font-mono">${c.prices?.education || 0}</span>
+                     <span className="font-bold font-mono">${c.seasons?.[currentSeason]?.education || 0}</span>
                    </div>
                    <div className="flex justify-between text-sm">
-                     <span className="text-gray-500">{t('Canteen')}</span>
-                     <span className="font-bold font-mono">${c.prices?.canteen || 0}</span>
+                     <span className="text-gray-500">{t('Canteen (Full)')}</span>
+                     <span className="font-bold font-mono">${typeof c.seasons?.[currentSeason]?.canteen === 'object' ? (c.seasons?.[currentSeason]?.canteen as any)?.full : (c.seasons?.[currentSeason]?.canteen || 0)}</span>
                    </div>
                    <div className="flex justify-between text-sm">
-                     <span className="text-gray-500">{t('Transport')}</span>
-                     <span className="font-bold font-mono">${c.prices?.transport || 0}</span>
+                     <span className="text-gray-500">{t('Transport (RT)')}</span>
+                     <span className="font-bold font-mono">${typeof c.seasons?.[currentSeason]?.transport === 'object' ? (c.seasons?.[currentSeason]?.transport as any)?.round_trip : (c.seasons?.[currentSeason]?.transport || 0)}</span>
                    </div>
                  </div>
                </div>
@@ -197,6 +243,62 @@ export default function Classes() {
                       <option value="middle">{t('Middle School')}</option>
                       <option value="high">{t('High School')}</option>
                     </select>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-bold text-gray-900 dark:text-white">{t('Class Services Prices')}</h4>
+                      <input 
+                        type="text" 
+                        value={currentSeason} 
+                        onChange={(e) => setCurrentSeason(e.target.value)} 
+                        className="w-32 px-3 py-1 rounded bg-gray-50 dark:bg-gray-800 border-none outline-none text-sm text-right font-bold" 
+                        placeholder="e.g. 2025/2026"
+                      />
+                    </div>
+                    
+                    <div className="space-y-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">{t('Education')}</label>
+                        <input type="number" min="0" value={prices.education} onChange={e => setPrices({...prices, education: Number(e.target.value)})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">{t('Canteen')}</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Full Meals')}</span>
+                            <input type="number" min="0" value={prices.canteen.full} onChange={e => setPrices({...prices, canteen: { ...prices.canteen, full: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Lunch')}</span>
+                            <input type="number" min="0" value={prices.canteen.lunch} onChange={e => setPrices({...prices, canteen: { ...prices.canteen, lunch: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Breakfast')}</span>
+                            <input type="number" min="0" value={prices.canteen.breakfast} onChange={e => setPrices({...prices, canteen: { ...prices.canteen, breakfast: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">{t('Transport')}</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Round Trip')}</span>
+                            <input type="number" min="0" value={prices.transport.round_trip} onChange={e => setPrices({...prices, transport: { ...prices.transport, round_trip: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Morning')}</span>
+                            <input type="number" min="0" value={prices.transport.morning} onChange={e => setPrices({...prices, transport: { ...prices.transport, morning: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 block mb-1">{t('Return')}</span>
+                            <input type="number" min="0" value={prices.transport.return} onChange={e => setPrices({...prices, transport: { ...prices.transport, return: Number(e.target.value) }})} className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
