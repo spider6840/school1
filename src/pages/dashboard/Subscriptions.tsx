@@ -243,7 +243,7 @@ export default function Subscriptions() {
 
     try {
       await addDoc(collection(db, 'subscriptions'), {
-        schoolId,
+        schoolId: st.schoolId || schoolId,
         studentId: selectedStudent,
         classId: selectedClass,
         season,
@@ -263,9 +263,10 @@ export default function Subscriptions() {
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!showPaymentModal) return;
+    const sub = subscriptions.find(s => s.id === showPaymentModal);
     try {
       await addDoc(collection(db, 'payments'), {
-        schoolId,
+        schoolId: sub?.schoolId || schoolId,
         subscriptionId: showPaymentModal,
         amount: parseFloat(payAmount),
         reference: payRef,

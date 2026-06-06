@@ -28,6 +28,8 @@ export default function Classes() {
   
   const [name, setName] = useState('');
   const [level, setLevel] = useState<'nursery' | 'primary' | 'middle' | 'high'>('primary');
+  const [targetSchoolId, setTargetSchoolId] = useState('');
+  const [schoolsList, setSchoolsList] = useState<{id: string, name: string}[]>([]);
   
   const [currentSeason, setCurrentSeason] = useState('2025/2026');
   const [prices, setPrices] = useState<any>({
@@ -37,14 +39,28 @@ export default function Classes() {
   });
 
   const { primaryColor } = useTheme();
-  const { isAdmin, role, schoolId, tenantId } = useAuth();
+  const { isAdmin, isSuperAdmin, role, schoolId, tenantId, schoolData } = useAuth();
   const { t } = useLanguage();
 
   useEffect(() => {
     if (schoolId || role === 'superadmin' || role === 'group_admin') {
       fetchClasses();
+      if (!schoolId && (role === 'superadmin' || role === 'group_admin')) {
+        fetchSchools();
+      }
     }
   }, [schoolId, role]);
+
+  const fetchSchools = async () => {
+    try {
+      let q = collection(db, 'schools') as any;
+      if (role === 'group_admin' && tenantId) {
+         q = query(q, where('tenantId', '==', tenantId));
+      }
+      const snap = await getDocs(q);
+      setSchoolsList(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+    } catch(e) {}
+  };
 
   const fetchClasses = async () => {
     try {
@@ -77,6 +93,7 @@ export default function Classes() {
   const openAdd = () => {
     setName('');
     setLevel('primary');
+    setTargetSchoolId(schoolId || (schoolsList.length > 0 ? schoolsList[0].id : ''));
     setPrices({ education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } });
     setEditingClass(null);
     setShowAdd(true);
@@ -98,13 +115,11 @@ export default function Classes() {
   };
 
   const saveClass = async () => {
-    // Determine the working school ID for saving. Must be an admin/superadmin with context
-    // If superadmin creates it, they'd ideally select a school, but we'll use schoolId if available
     if (!name.trim()) return;
     
     // Quick validation
-    const targetSchoolId = editingClass?.schoolId || schoolId;
-    if (!targetSchoolId) {
+    const targetId = editingClass?.schoolId || schoolId || targetSchoolId;
+    if (!targetId) {
       alert("Please select a school context to create a class.");
       return;
     }
@@ -114,7 +129,7 @@ export default function Classes() {
       
       const classData = {
         name,
-        schoolId: targetSchoolId,
+        schoolId: targetId,
         level,
         seasons: {
           ...existingSeasons,
@@ -231,18 +246,50 @@ export default function Classes() {
                     />
                   </div>
                   
+                  {!schoolId && !editingClass && (isSuperAdmin || role === 'group_admin') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Level')}</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('School')}</label>
                     <select 
-                      value={level} 
-                      onChange={(e) => setLevel(e.target.value as any)}
+                      value={targetSchoolId} 
+                      onChange={(e) => setTargetSchoolId(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none shadow-inner appearance-none border border-transparent focus:border-gray-200 dark:focus:border-gray-700"
                     >
-                      <option value="nursery">{t('Nursery')}</option>
-                      <option value="primary">{t('Primary')}</option>
-                      <option value="middle">{t('Middle School')}</option>
-                      <option value="high">{t('High School')}</option>
+                      <option value="">-- {t('Select School')} --</option>
+                      {schoolsList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </select>
+                  </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Level')}</label>
+                    <div className="flex gap-2">
+                       <select 
+                         value={level} 
+                         onChange={(e) => setLevel(e.target.value as any)}
+                         className="flex-1 px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 outline-none shadow-inner appearance-none border border-transparent focus:border-gray-200 dark:focus:border-gray-700"
+                       >
+                         <option value="nursery">{t('Nursery')}</option>
+                         <option value="primary">{t('Primary')}</option>
+                         <option value="middle">{t('Middle School')}</option>
+                         <option value="high">{t('High School')}</option>
+                       </select>
+                       
+                       {schoolData?.levels?.[level]?.classTemplates?.length > 0 && (
+                         <select
+                           onChange={(e) => {
+                             const tpl = schoolData.levels[level].classTemplates.find((t: any) => t.name === e.target.value);
+                             if (tpl) {
+                               setName(tpl.name);
+                               setPrices(tpl.prices);
+                             }
+                           }}
+                           className="flex-1 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold outline-none border border-transparent focus:border-indigo-200"
+                         >
+                           <option value="">{t('Load Template...')}</option>
+                           {schoolData.levels[level].classTemplates.map((t: any, i: number) => <option key={i} value={t.name}>{t.name}</option>)}
+                         </select>
+                       )}
+                    </div>
                   </div>
 
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800">

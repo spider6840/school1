@@ -18,7 +18,8 @@ import {
   Menu,
   X,
   FileText,
-  DollarSign
+  DollarSign,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
@@ -67,7 +68,6 @@ export default function Dashboard() {
     { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['superadmin', 'group_admin', 'admin'] },
     { icon: Building, label: t('Classrooms'), path: '/dashboard/classrooms', roles: ['superadmin', 'group_admin', 'admin'] },
     { icon: Calendar, label: t('Timetables'), path: '/dashboard/timetables', roles: ['superadmin', 'group_admin', 'admin', 'teacher', 'student'] },
-    { icon: Calendar, label: t('Vacations'), path: '/dashboard/vacations', roles: ['superadmin', 'group_admin', 'admin', 'teacher', 'student', 'parent'] },
     { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
     { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
     { icon: GraduationCap, label: t('Grading'), path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
