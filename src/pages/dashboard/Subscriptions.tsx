@@ -81,6 +81,35 @@ export default function Subscriptions() {
   const [payPeriod, setPayPeriod] = useState('');
   const [payPayer, setPayPayer] = useState('');
 
+  const [showScheduleModal, setShowScheduleModal] = useState<Subscription | null>(null);
+
+  const calculateMonthlyDue = (sub: Subscription) => {
+    const cls = classes[sub.classId];
+    let total = 0;
+    if (cls) {
+      const ed = sub.services.education as any;
+      const ca = sub.services.canteen as any;
+      const tr = sub.services.transport as any;
+
+      const seasonPrices = cls.seasons?.[sub.season] || null;
+      const levelPrices = cls.level ? schoolData?.levels?.[cls.level]?.prices : null;
+      const basePrices = seasonPrices || levelPrices || cls.prices || { education: 0, canteen: { full: 0, lunch: 0, breakfast: 0 }, transport: { round_trip: 0, morning: 0, return: 0 } };
+      
+      if (ed === true || ed?.enabled) total += (basePrices.education || 0) - (ed?.discount || 0);
+      if (ca === true || ca?.enabled) {
+         const subType = ca?.subType || 'full';
+         const cPrice = typeof basePrices.canteen === 'object' ? (basePrices.canteen[subType] || 0) : (basePrices.canteen || 0);
+         total += cPrice - (ca?.discount || 0);
+      }
+      if (tr === true || tr?.enabled) {
+         const subType = tr?.subType || 'round_trip';
+         const tPrice = typeof basePrices.transport === 'object' ? (basePrices.transport[subType] || 0) : (basePrices.transport || 0);
+         total += tPrice - (tr?.discount || 0);
+      }
+    }
+    return total;
+  };
+
   const openPaymentModal = (sub: Subscription) => {
     const cls = classes[sub.classId];
     let total = 0;
@@ -107,7 +136,8 @@ export default function Subscriptions() {
       }
     }
     
-    setPayAmount(total > 0 ? total.toString() : '');
+    const monthlyDue = calculateMonthlyDue(sub);
+    setPayAmount(monthlyDue > 0 ? monthlyDue.toString() : '');
     setPayRef('');
     setPayType('cash');
     setPayStatus('paid');
@@ -453,10 +483,13 @@ export default function Subscriptions() {
                   </div>
                 </div>
 
-                <div className="w-full md:w-[350px] bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-5 border border-gray-100 dark:border-gray-700">
+                <div className="w-full md:w-[400px] bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-5 border border-gray-100 dark:border-gray-700">
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="font-bold text-gray-900 dark:text-white">{t('Payments')}</h4>
-                    <button onClick={() => openPaymentModal(sub)} className="text-sm px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 transition-colors flex items-center gap-1">+ {t('Add')}</button>
+                    <div className="flex gap-2">
+                       <button onClick={() => setShowScheduleModal(sub)} className="text-sm px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-200 transition-colors flex items-center gap-1">{t('Schedule')}</button>
+                       <button onClick={() => openPaymentModal(sub)} className="text-sm px-3 py-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 transition-colors flex items-center gap-1">+ {t('Add')}</button>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     {subPays.length === 0 ? <p className="text-xs text-gray-500 text-center">No payments logged yet.</p> :
@@ -608,6 +641,86 @@ export default function Subscriptions() {
           })
         }
       </div>
+
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} flex-initial animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-gray-900 rounded-[2rem] w-full max-w-3xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-bold">{t('Payment Schedule')} - {students[showScheduleModal.studentId]?.name}</h3>
+                <p className="text-gray-500 mt-1">{t('Monthly allocation of paid amounts')}</p>
+              </div>
+              <button onClick={() => setShowScheduleModal(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+                 <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-xs uppercase text-gray-500 tracking-wider border-b border-gray-100 dark:border-gray-800">
+                    <th className="pb-3">{t('Month')}</th>
+                    <th className="pb-3">{t('Due')}</th>
+                    <th className="pb-3">{t('Paid')}</th>
+                    <th className="pb-3">{t('Balance')}</th>
+                    <th className="pb-3">{t('Status')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {(() => {
+                    const monthlyDue = calculateMonthlyDue(showScheduleModal);
+                    const months = ['September', 'October', 'November', 'December', 'January', 'February', 'March', 'April', 'May', 'June'];
+                    let totalPaid = payments[showScheduleModal.id]?.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0) || 0;
+                    
+                    return months.map((month, i) => {
+                      let allocated = 0;
+                      if (totalPaid >= monthlyDue) {
+                        allocated = monthlyDue;
+                        totalPaid -= monthlyDue;
+                      } else if (totalPaid > 0) {
+                        allocated = totalPaid;
+                        totalPaid = 0;
+                      }
+                      
+                      const balance = monthlyDue - allocated;
+                      const status = balance === 0 ? 'PAID' : (allocated > 0 ? 'PARTIAL' : 'UNPAID');
+
+                      return (
+                        <tr key={month}>
+                          <td className="py-4 font-bold text-gray-900 dark:text-white">{t(month)}</td>
+                          <td className="py-4 font-mono">${monthlyDue}</td>
+                          <td className="py-4 font-mono text-green-600">${allocated.toFixed(2)}</td>
+                          <td className="py-4 font-mono text-red-600">${balance.toFixed(2)}</td>
+                          <td className="py-4">
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-black tracking-widest ${status === 'PAID' ? 'bg-green-100 text-green-700' : status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                              {t(status)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+
+              {(() => {
+                 const totalPaid = payments[showScheduleModal.id]?.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0) || 0;
+                 const monthlyDue = calculateMonthlyDue(showScheduleModal);
+                 const surplus = totalPaid - (monthlyDue * 10);
+                 if (surplus > 0) {
+                   return (
+                     <div className="mt-6 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300 font-bold flex justify-between items-center border border-indigo-100 dark:border-indigo-800">
+                        <span>{t('Surplus from payments (carried forward)')}</span>
+                        <span className="font-mono text-lg">+ ${surplus.toFixed(2)}</span>
+                     </div>
+                   );
+                 }
+                 return null;
+              })()}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">

@@ -134,6 +134,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Timetables Collection
+    match /timetables/{timetableId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Vacations Collection
+    match /vacations/{vacationId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
+    }
+
     // Attendance Collection
     match /attendance/{attendanceId} {
       allow read: if isEmailVerified() && (

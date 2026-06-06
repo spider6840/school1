@@ -24,6 +24,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
 import Classes from './dashboard/Classes';
 import Classrooms from './dashboard/Classrooms';
+import Timetables from './dashboard/Timetables';
+import Vacations from './dashboard/Vacations';
 import Attendance from './dashboard/Attendance';
 import Settings from './dashboard/Settings';
 import ProfileSettings from './dashboard/ProfileSettings';
@@ -64,6 +66,8 @@ export default function Dashboard() {
     { icon: DollarSign, label: t('Payments'), path: '/dashboard/payments', roles: ['superadmin', 'group_admin', 'admin', 'accountant'] },
     { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['superadmin', 'group_admin', 'admin'] },
     { icon: Building, label: t('Classrooms'), path: '/dashboard/classrooms', roles: ['superadmin', 'group_admin', 'admin'] },
+    { icon: Calendar, label: t('Timetables'), path: '/dashboard/timetables', roles: ['superadmin', 'group_admin', 'admin', 'teacher', 'student'] },
+    { icon: Calendar, label: t('Vacations'), path: '/dashboard/vacations', roles: ['superadmin', 'group_admin', 'admin', 'teacher', 'student', 'parent'] },
     { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
     { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
     { icon: GraduationCap, label: t('Grading'), path: '/dashboard/grading', roles: ['admin', 'teacher', 'student'] },
@@ -152,6 +156,8 @@ export default function Dashboard() {
           <Route path="payments" element={<Payments />} />
           <Route path="classes" element={<Classes />} />
           <Route path="classrooms" element={<Classrooms />} />
+          <Route path="timetables" element={<Timetables />} />
+          <Route path="vacations" element={<Vacations />} />
           <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="subjects" element={<Subjects />} />
