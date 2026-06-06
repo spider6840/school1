@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
+import { db } from '../lib/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTheme } from '../hooks/useTheme';
@@ -16,7 +17,8 @@ import {
   Building,
   Menu,
   X,
-  FileText
+  FileText,
+  DollarSign
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import UserManagement from './dashboard/UserManagement';
@@ -28,6 +30,7 @@ import Schools from './dashboard/Schools';
 import Subjects from './dashboard/Subjects';
 import Homeworks from './dashboard/Homeworks';
 import Subscriptions from './dashboard/Subscriptions';
+import Payments from './dashboard/Payments';
 
 export default function Dashboard() {
   const { user, role, isAdmin, isSuperAdmin, schoolData } = useAuth();
@@ -57,6 +60,7 @@ export default function Dashboard() {
     { icon: BookOpen, label: t('Subjects'), path: '/dashboard/subjects', roles: ['admin', 'teacher'] },
     { icon: Users, label: t('Users'), path: '/dashboard/users', roles: ['admin'] },
     { icon: FileText, label: t('Subscriptions'), path: '/dashboard/subscriptions', roles: ['admin', 'accountant'] },
+    { icon: DollarSign, label: t('Payments'), path: '/dashboard/payments', roles: ['admin', 'accountant'] },
     { icon: BookOpen, label: t('Classes'), path: '/dashboard/classes', roles: ['admin'] },
     { icon: CalendarCheck, label: t('Attendance'), path: '/dashboard/attendance', roles: ['admin', 'teacher'] },
     { icon: BookOpen, label: t('Homeworks'), path: '/dashboard/homeworks', roles: ['admin', 'teacher', 'student', 'parent'] },
@@ -144,6 +148,7 @@ export default function Dashboard() {
           <Route path="/" element={<Overview />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="payments" element={<Payments />} />
           <Route path="classes" element={<Classes />} />
           <Route path="schools" element={<Schools />} />
           <Route path="attendance" element={<Attendance />} />
@@ -160,23 +165,104 @@ export default function Dashboard() {
 }
 
 function Overview() {
-  const { user, role } = useAuth();
+  const { user, role, schoolId } = useAuth();
   const { primaryColor } = useTheme();
   const { t } = useLanguage();
 
+  const [stats, setStats] = useState({
+    students: 0,
+    staff: 0,
+    totalPayments: 0,
+    schools: 0
+  });
+  
+  const [schoolsList, setSchoolsList] = useState<any[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<string>('all');
+
+  useEffect(() => {
+    if (role === 'superadmin') {
+      import('firebase/firestore').then(({ collection, getDocs }) => {
+         getDocs(collection(db, 'schools')).then(snap => {
+            setSchoolsList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+         });
+      });
+    }
+  }, [role]);
+
+  useEffect(() => {
+    import('firebase/firestore').then(({ collection, getDocs, query, where }) => {
+      const fetchStats = async () => {
+        try {
+          if (role === 'superadmin' && selectedSchool === 'all') {
+            const [schoolsSnap, usersSnap, paySnap] = await Promise.all([
+              getDocs(collection(db, 'schools')),
+              getDocs(collection(db, 'users')),
+              getDocs(collection(db, 'payments'))
+            ]);
+            let paidSum = 0;
+            paySnap.forEach(d => { if (d.data().status === 'paid') paidSum += d.data().amount || 0; });
+            setStats({
+              schools: schoolsSnap.size,
+              students: usersSnap.docs.filter(d => d.data().role === 'student').length,
+              staff: usersSnap.docs.filter(d => d.data().role === 'admin' || d.data().role === 'teacher').length,
+              totalPayments: paidSum
+            });
+          } else if (schoolId || (role === 'superadmin' && selectedSchool !== 'all')) {
+             const targetSchool = role === 'superadmin' ? selectedSchool : schoolId;
+             const [usersSnap, paySnap] = await Promise.all([
+              getDocs(query(collection(db, 'users'), where('schoolId', '==', targetSchool))),
+              getDocs(query(collection(db, 'payments'), where('schoolId', '==', targetSchool)))
+            ]);
+            let paidSum = 0;
+            paySnap.forEach(d => { if (d.data().status === 'paid') paidSum += d.data().amount || 0; });
+            setStats({
+              schools: 1,
+              students: usersSnap.docs.filter(d => d.data().role === 'student').length,
+              staff: usersSnap.docs.filter(d => d.data().role === 'admin' || d.data().role === 'teacher').length,
+              totalPayments: paidSum
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      // give a tiny delay to ensure db is ready
+      setTimeout(fetchStats, 100);
+    });
+  }, [schoolId, role, selectedSchool]);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('Welcome back')}, {user?.displayName || user?.email}</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">{t('Here\'s what\'s happening in your school today.')}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('Welcome back')}, {user?.displayName || user?.email}</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">
+            {role === 'superadmin' ? t('Global platform 360 overview.') : t('Here\'s what\'s happening in your school today.')}
+          </p>
+        </div>
+        {role === 'superadmin' && (
+          <div className="flex items-center gap-2 bg-white dark:bg-gray-900 px-4 py-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+            <Building className="w-5 h-5 text-gray-400" />
+            <select
+              value={selectedSchool}
+              onChange={(e) => setSelectedSchool(e.target.value)}
+              className="bg-transparent text-sm font-semibold text-gray-700 dark:text-gray-300 outline-none border-none cursor-pointer"
+            >
+              <option value="all">All Schools (360 View)</option>
+              {schoolsList.map(s => (
+                <option key={s.id} value={s.id}>{s.name || s.id}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: t('Active Students'), value: '1,234', icon: Users, color: 'blue' },
-          { label: t('Staff Members'), value: '86', icon: ShieldCheck, color: 'green' },
-          { label: t('Classes Today'), value: '42', icon: GraduationCap, color: 'purple' },
-          { label: t('Unread Messages'), value: '12', icon: MessageSquare, color: 'amber' },
+          { label: role === 'superadmin' ? t('Tenant Schools') : t('Active Students'), value: role === 'superadmin' ? stats.schools : stats.students, icon: role === 'superadmin' ? Building : Users, color: 'blue' },
+          { label: t('Staff Members'), value: stats.staff, icon: ShieldCheck, color: 'green' },
+          { label: role === 'superadmin' ? t('Total Inscriptions') : t('Inscriptions'), value: stats.students, icon: GraduationCap, color: 'purple' },
+          { label: t('Total Revenue'), value: `$${stats.totalPayments.toLocaleString()}`, icon: DollarSign, color: 'amber' },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -197,17 +283,7 @@ function Overview() {
       <div className="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-800">
          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">{t('Recent Activity')}</h2>
          <div className="space-y-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex gap-4 items-center">
-                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500">
-                    <Users className="w-5 h-5" />
-                 </div>
-                 <div>
-                    <div className="text-sm font-bold text-gray-900 dark:text-white">{t('New admission processed')}</div>
-                    <div className="text-xs text-gray-500">{t('2 hours ago')}</div>
-                 </div>
-              </div>
-            ))}
+             <div className="text-sm text-gray-500 text-center py-4">{t('No recent activity')}</div>
          </div>
       </div>
     </div>

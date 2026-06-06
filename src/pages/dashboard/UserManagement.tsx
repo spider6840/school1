@@ -273,17 +273,19 @@ export default function UserManagement() {
                   <td className="px-8 py-5 text-gray-500 text-sm">
                     {u.schoolId ? schools.find(s => s.id === u.schoolId)?.name || u.schoolId : '—'}
                   </td>
-                  <td className="px-8 py-5 text-right flex items-center justify-end gap-2">
-                    {isSuperAdmin && (
-                      <button 
-                        onClick={() => openEdit(u)}
-                        className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Manage Role & School"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                    )}
-                  </td>
+                   <td className="px-8 py-5 text-right">
+                     <div className="flex items-center justify-end gap-2">
+                      {isAdmin && (
+                        <button 
+                          onClick={() => openEdit(u)}
+                          className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                          title="Manage Role & School"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                      )}
+                     </div>
+                   </td>
                 </tr>
               ))
             )}
@@ -394,24 +396,32 @@ export default function UserManagement() {
                     {formData.role === 'student' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor Email 1</label>
-                          <input
-                            type="email"
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor 1</label>
+                          <select
                             value={formData.parentEmail1}
                             onChange={(e) => setFormData({ ...formData, parentEmail1: e.target.value })}
-                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none"
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none appearance-none"
                             style={{ '--tw-ring-color': primaryColor } as any}
-                          />
+                          >
+                            <option value="">Select a parent/tutor...</option>
+                            {users.filter(u => u.role === 'parent').map(p => (
+                              <option key={p.uid} value={p.email}>{p.name} ({p.email})</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor Email 2 (Optional)</label>
-                          <input
-                            type="email"
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Parent/Tutor 2 (Optional)</label>
+                          <select
                             value={formData.parentEmail2}
                             onChange={(e) => setFormData({ ...formData, parentEmail2: e.target.value })}
-                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none"
+                            className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none focus:ring-2 outline-none appearance-none"
                             style={{ '--tw-ring-color': primaryColor } as any}
-                          />
+                          >
+                            <option value="">Select a parent/tutor...</option>
+                            {users.filter(u => u.role === 'parent').map(p => (
+                              <option key={p.uid} value={p.email}>{p.name} ({p.email})</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     )}

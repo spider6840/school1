@@ -205,12 +205,12 @@ export default function Settings() {
 
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-4">
-              <Building className="w-5 h-5 text-gray-400" /> Academic Levels
+              <Building className="w-5 h-5 text-gray-400" /> Academic Levels & Config
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {(['nursery', 'primary', 'middle', 'high'] as const).map(level => (
-                <div key={level} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between mb-4">
+                <div key={level} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
+                  <div className="flex items-center justify-between">
                     <label className="text-sm font-bold capitalize text-gray-700 dark:text-gray-300">{level}</label>
                     <input 
                       type="checkbox" 
@@ -226,23 +226,68 @@ export default function Settings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Duration (Years)</label>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Duration (Years)</label>
                     <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      disabled={!formData.levels[level]?.enabled}
+                      type="number" min="1" max="10" disabled={!formData.levels[level]?.enabled}
                       value={formData.levels[level]?.years || 1}
                       onChange={(e) => setFormData({
-                        ...formData,
-                        levels: {
-                          ...formData.levels,
-                          [level]: { ...formData.levels[level], years: parseInt(e.target.value) || 1 }
-                        }
+                        ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], years: parseInt(e.target.value) || 1 } }
                       })}
-                      className="w-full px-4 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-2 outline-none disabled:opacity-50"
-                      style={{ '--tw-ring-color': primaryColor } as any}
+                      className="w-full px-4 py-2 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 outline-none disabled:opacity-50"
                     />
+                  </div>
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Base Prices ($)</label>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span>Education</span>
+                        <input type="number" min="0" value={formData.levels[level]?.prices?.education || 0}
+                          onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, education: Number(e.target.value) } } } })}
+                          className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                      </div>
+                      <div className="flex flex-col gap-1 text-xs mb-2">
+                        <span className="font-bold flex justify-between">Canteen</span>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Full Meals</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.canteen?.full || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, canteen: { ...formData.levels[level]?.prices?.canteen, full: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Lunch Only</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.canteen?.lunch || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, canteen: { ...formData.levels[level]?.prices?.canteen, lunch: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Breakfast Only</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.canteen?.breakfast || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, canteen: { ...formData.levels[level]?.prices?.canteen, breakfast: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1 text-xs">
+                        <span className="font-bold flex justify-between">Transport</span>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Round Trip</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.transport?.round_trip || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, transport: { ...formData.levels[level]?.prices?.transport, round_trip: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Morning Coming</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.transport?.morning || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, transport: { ...formData.levels[level]?.prices?.transport, morning: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                        <div className="flex justify-between items-center pl-2">
+                           <span className="text-gray-500">Return Home</span>
+                           <input type="number" min="0" value={formData.levels[level]?.prices?.transport?.return || 0}
+                             onChange={(e) => setFormData({ ...formData, levels: { ...formData.levels, [level]: { ...formData.levels[level], prices: { ...formData.levels[level]?.prices, transport: { ...formData.levels[level]?.prices?.transport, return: Number(e.target.value) } } } } })}
+                             className="w-16 px-2 py-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
