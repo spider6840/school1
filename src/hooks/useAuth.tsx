@@ -9,6 +9,15 @@ interface AuthContextType {
   userData: any | null;
   schoolId: string | null;
   tenantId: string | null;
+  
+  // Real underlying DB fields
+  profileSchoolId: string | null;
+  profileTenantId: string | null;
+  
+  // Active viewing context setters
+  setActiveSchoolId: (id: string | null) => void;
+  setActiveTenantId: (id: string | null) => void;
+
   schoolData: any | null;
   loading: boolean;
   login: () => Promise<void>;
@@ -16,18 +25,28 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isSales: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'superadmin' | 'group_admin' | 'admin' | 'teacher' | 'student' | 'parent' | null>(null);
+  const [role, setRole] = useState<'superadmin' | 'group_admin' | 'admin' | 'teacher' | 'student' | 'parent' | 'sales' | null>(null);
   const [userData, setUserData] = useState<any | null>(null);
-  const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  
+  const [profileSchoolId, setProfileSchoolId] = useState<string | null>(null);
+  const [profileTenantId, setProfileTenantId] = useState<string | null>(null);
+  
+  const [activeSchoolId, setActiveSchoolId] = useState<string | null>(null);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
+
   const [schoolData, setSchoolData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Effective IDs
+  const schoolId = activeSchoolId || profileSchoolId;
+  const tenantId = activeTenantId || profileTenantId;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -52,8 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setRole(currentRole);
             setUserData(data);
-            setSchoolId(data.schoolId || null);
-            setTenantId(data.tenantId || null);
+            setProfileSchoolId(data.schoolId || null);
+            setProfileTenantId(data.tenantId || null);
             
             if (data.schoolId) {
               const schoolDoc = await getDoc(doc(db, 'schools', data.schoolId));
@@ -93,8 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             setRole(newRole);
             setUserData(newUserData);
-            setSchoolId(null);
-            setTenantId(null);
+            setProfileSchoolId(null);
+            setProfileTenantId(null);
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
@@ -109,14 +128,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSchoolData(null);
           }
           setUserData(null);
-          setSchoolId(null);
-          setTenantId(null);
+          setProfileSchoolId(null);
+          setProfileTenantId(null);
         }
       } else {
         setRole(null);
         setUserData(null);
-        setSchoolId(null);
-        setTenantId(null);
+        setProfileSchoolId(null);
+        setProfileTenantId(null);
         setSchoolData(null);
       }
       setLoading(false);
@@ -144,13 +163,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userData,
       schoolId,
       tenantId,
+      profileSchoolId,
+      profileTenantId,
+      setActiveSchoolId,
+      setActiveTenantId,
       schoolData,
       loading, 
       login, 
       emailLogin,
       logout,
       isAdmin: role === 'admin' || role === 'superadmin' || role === 'group_admin',
-      isSuperAdmin: role === 'superadmin'
+      isSuperAdmin: role === 'superadmin',
+      isSales: role === 'sales'
     }}>
       {!loading && children}
     </AuthContext.Provider>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -86,17 +86,17 @@ export default function Timetables() {
         getDocs(baseQuery('classrooms'))
       ]);
 
-      const cls = clsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const cls = clsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       setClasses(cls);
-      setSubjects(subSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setSubjects(subSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
       
       // Filter teachers properly
-      let tchRecords = tchSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      let tchRecords = tchSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
       if (schoolId) tchRecords = tchRecords.filter((t: any) => t.schoolId === schoolId);
       if (role === 'group_admin') tchRecords = tchRecords.filter((t: any) => qSchoolIds.includes(t.schoolId));
       setTeachers(tchRecords);
       
-      setClassrooms(rumSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setClassrooms(rumSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
 
       if (selectedClassId) {
         let slotQ = query(collection(db, 'timetables'), 
@@ -116,29 +116,35 @@ export default function Timetables() {
   };
 
   const checkConflicts = async (data: Partial<TimetableSlot>) => {
-    // Basic conflict check
-    const qSlot = query(collection(db, 'timetables'), 
-      where('season', '==', currentSeason),
-      where('dayOfWeek', '==', data.dayOfWeek!)
-    );
-    const snap = await getDocs(qSlot);
-    const sameDaySlots = snap.docs.map(d => ({ id: d.id, ...d.data() } as TimetableSlot));
-    
-    for (const slot of sameDaySlots) {
-       // if time overlaps
-       if (slot.startTime < data.endTime! && data.startTime! < slot.endTime) {
-         if (slot.classroomId === data.classroomId) {
-           return "Conflict: Classroom is already booked for this time block.";
+    try {
+      // Basic conflict check
+      const qSlot = query(collection(db, 'timetables'), 
+        where('season', '==', currentSeason),
+        where('dayOfWeek', '==', data.dayOfWeek!),
+        where('schoolId', '==', data.schoolId!)
+      );
+      const snap = await getDocs(qSlot);
+      const sameDaySlots = snap.docs.map(d => ({ id: d.id, ...d.data() } as TimetableSlot));
+      
+      for (const slot of sameDaySlots) {
+         // if time overlaps
+         if (slot.startTime < data.endTime! && data.startTime! < slot.endTime) {
+           if (slot.classroomId === data.classroomId) {
+             return "Conflict: Classroom is already booked for this time block.";
+           }
+           if (slot.teacherId === data.teacherId) {
+             return "Conflict: Teacher is already assigned to a class for this time block.";
+           }
+           if (slot.classId === data.classId) {
+             return "Conflict: Class already has a course scheduled during this time.";
+           }
          }
-         if (slot.teacherId === data.teacherId) {
-           return "Conflict: Teacher is already assigned to a class for this time block.";
-         }
-         if (slot.classId === data.classId) {
-           return "Conflict: Class already has a course scheduled during this time.";
-         }
-       }
+      }
+      return null;
+    } catch(e: any) {
+      console.error(e);
+      return "Checking conflicts failed: " + e.message;
     }
-    return null;
   };
 
   const saveSlot = async (e: React.FormEvent) => {
@@ -151,7 +157,10 @@ export default function Timetables() {
     }
 
     const targetSchoolId = classes.find(c => c.id === selectedClassId)?.schoolId || schoolId;
-    if (!targetSchoolId) return;
+    if (!targetSchoolId) {
+      setConflictError('Cannot determine school context for this class.');
+      return;
+    }
 
     const payload = {
       ...formData,
@@ -202,7 +211,7 @@ export default function Timetables() {
              className="w-32 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-mono text-center font-bold" 
              placeholder="Season"
            />
-           <button onClick={() => { setFormData({ dayOfWeek: 1, startTime: '08:00', endTime: '10:00' }); setShowAdd(true); }} disabled={!selectedClassId} className="px-5 py-2.5 rounded-xl text-white font-medium flex items-center gap-2 shadow-lg disabled:opacity-50" style={{ backgroundColor: primaryColor }}>
+           <button onClick={() => { setFormData({ subjectId: '', teacherId: '', classroomId: '', dayOfWeek: 1, startTime: '08:00', endTime: '10:00' }); setShowAdd(true); }} disabled={!selectedClassId} className="px-5 py-2.5 rounded-xl text-white font-medium flex items-center gap-2 shadow-lg disabled:opacity-50" style={{ backgroundColor: primaryColor }}>
              <Plus className="w-5 h-5" /> {t('Add Slot')}
            </button>
         </div>

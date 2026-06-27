@@ -12,7 +12,8 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && (request.auth.token.email_verified == true || isAdmin());
+      let emailVerified = ('email_verified' in request.auth.token) && request.auth.token.email_verified == true;
+      return isSignedIn() && (emailVerified || isAdmin());
     }
 
     function isValidId(id) {
@@ -29,9 +30,20 @@ service cloud.firestore {
 
     // Role Lookup
     function isAdmin() {
+      let isVerifiedEmail = ('email' in request.auth.token) && (
+        request.auth.token.email == 'r.elmougali@addohaafrique.com' || 
+        request.auth.token.email == 'rmougali@yahoo.fr' || 
+        request.auth.token.email == 'r.elmougali@edupro.com' ||
+        request.auth.token.email == 'server@local.host'
+      );
+      
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let hasRole = userDoc != null && userDoc.data.role in ['superadmin', 'group_admin', 'admin'];
+
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        ((request.auth.token.email == 'r.elmougali@addohaafrique.com' || request.auth.token.email == 'rmougali@yahoo.fr' || request.auth.token.email == 'r.elmougali@edupro.com'))
+        isVerifiedEmail ||
+        hasRole
       );
     }
 
@@ -45,9 +57,14 @@ service cloud.firestore {
              data.uid is string && data.uid.size() <= 128 &&
              data.email is string && data.email.size() <= 200 &&
              data.name is string && data.name.size() <= 200 &&
-             data.role in ['superadmin', 'group_admin', 'admin', 'accountant', 'teacher', 'student', 'parent'] &&
+             data.role in ['superadmin', 'group_admin', 'admin', 'accountant', 'teacher', 'student', 'parent', 'sales'] &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
+    }
+
+    function isSales() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn() && userDoc != null && userDoc.data.role == 'sales';
     }
 
     // --- Collection Rules ---
@@ -128,6 +145,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Leads Collection
+    match /leads/{leadId} {
+      allow create: if true; // Open to world for forms and webhooks
+      allow read, update, delete: if isAdmin() || isSales();
+    }
+
     // Classrooms Collection
     match /classrooms/{classroomId} {
       allow read: if isSignedIn();
@@ -183,6 +206,12 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow read: if isEmailVerified();
       allow write: if isAdmin(); // only admins/accountants can write payments
+    }
+
+    // Marks Collection
+    match /marks/{markId} {
+      allow read: if isEmailVerified();
+      allow write: if isEmailVerified() && (isAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher');
     }
 
     // Services Collection

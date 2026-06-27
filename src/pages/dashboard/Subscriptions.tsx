@@ -4,7 +4,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 import { useTheme } from '../../hooks/useTheme';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { FileText, Plus, Search, DollarSign, Edit, CheckCircle } from 'lucide-react';
+import { FileText, Plus, Search, DollarSign, Edit, CheckCircle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Subscription {
@@ -182,7 +182,7 @@ export default function Subscriptions() {
       
       const clsSnap = await getDocs(clsQuery);
       const clsMap: Record<string, Class> = {};
-      clsSnap.forEach(d => clsMap[d.id] = { id: d.id, ...d.data() } as Class);
+      clsSnap.forEach(d => clsMap[d.id] = { id: d.id, ...(d.data() as any) } as Class);
       setClasses(clsMap);
 
       // Fetch students
@@ -192,7 +192,7 @@ export default function Subscriptions() {
 
       const stuSnap = await getDocs(stuQuery);
       const stuMap: Record<string, User> = {};
-      stuSnap.forEach(d => stuMap[d.id] = { uid: d.id, ...d.data() } as User);
+      stuSnap.forEach(d => stuMap[d.id] = { uid: d.id, ...(d.data() as any) } as User);
       setStudents(stuMap);
 
       // Fetch subscriptions
@@ -202,7 +202,7 @@ export default function Subscriptions() {
 
       const subSnap = await getDocs(subQuery);
       const subList: Subscription[] = [];
-      subSnap.forEach(d => subList.push({ id: d.id, ...d.data() } as Subscription));
+      subSnap.forEach(d => subList.push({ id: d.id, ...(d.data() as any) } as Subscription));
       setSubscriptions(subList);
 
       // Fetch payments
@@ -213,7 +213,7 @@ export default function Subscriptions() {
       const paySnap = await getDocs(payQuery);
       const pMap: Record<string, Payment[]> = {};
       paySnap.forEach(d => {
-        const p = { id: d.id, ...d.data() } as Payment;
+        const p = { id: d.id, ...(d.data() as any) } as Payment;
         if (!pMap[p.subscriptionId]) pMap[p.subscriptionId] = [];
         pMap[p.subscriptionId].push(p);
       });
@@ -279,7 +279,6 @@ export default function Subscriptions() {
       });
 
       // Simple auto-activation logic if paid
-      const sub = subscriptions.find(s => s.id === showPaymentModal);
       if (sub && sub.status === 'disabled' && payStatus === 'paid') {
         await updateDoc(doc(db, 'subscriptions', sub.id), { status: 'active' });
       }

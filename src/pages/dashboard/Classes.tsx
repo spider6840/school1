@@ -58,7 +58,7 @@ export default function Classes() {
          q = query(q, where('tenantId', '==', tenantId));
       }
       const snap = await getDocs(q);
-      setSchoolsList(snap.docs.map(d => ({ id: d.id, name: d.data().name })));
+      setSchoolsList(snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name })));
     } catch(e) {}
   };
 
@@ -81,7 +81,7 @@ export default function Classes() {
       else if (role === 'group_admin') clsQuery = query(clsQuery, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
       
       const snap = await getDocs(clsQuery);
-      setClasses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ClassGroup)));
+      setClasses(snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as ClassGroup)));
     } catch (e: any) {
       console.error(e);
       alert('Error fetching classes: ' + (e.message || String(e)));
@@ -124,11 +124,17 @@ export default function Classes() {
       return;
     }
 
+    // Check duplicates
+    if (classes.some(c => c.schoolId === targetId && c.name.toLowerCase() === name.trim().toLowerCase() && c.id !== editingClass?.id)) {
+      alert("A class instance with this name already exists in this school.");
+      return;
+    }
+
     try {
       const existingSeasons = editingClass?.seasons || {};
       
       const classData = {
-        name,
+        name: name.trim(),
         schoolId: targetId,
         level,
         seasons: {

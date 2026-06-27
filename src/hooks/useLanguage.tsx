@@ -128,7 +128,6 @@ export const translations: Translations = {
   'Round Trip': { en: 'Round Trip', fr: 'Aller-Retour', ar: 'ذهاب وإياب' },
   'Morning Coming': { en: 'Morning Coming', fr: 'Aller (Matin)', ar: 'ذهاب (الصباح)' },
   'Return Home': { en: 'Return Home', fr: 'Retour (Soir)', ar: 'عودة (المساء)' },
-  'Tenant Schools': { en: 'Tenant Schools', fr: 'Écoles Locataires', ar: 'المدارس التابعة' },
   'Total Inscriptions': { en: 'Total Inscriptions', fr: 'Total des Inscriptions', ar: 'إجمالي التسجيلات' },
   'Total Revenue': { en: 'Total Revenue', fr: 'Revenu Total', ar: 'إجمالي الإيرادات' },
   'Inscriptions': { en: 'Inscriptions', fr: 'Inscriptions', ar: 'تسجيلات' },

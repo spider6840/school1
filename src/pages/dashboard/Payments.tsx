@@ -34,31 +34,50 @@ export default function Payments() {
   const [subscriptionsMap, setSubscriptionsMap] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    if (schoolId) {
+    if (schoolId || role === 'superadmin' || role === 'group_admin') {
       fetchPayments();
     }
-  }, [schoolId]);
+  }, [schoolId, role]);
 
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      
-      // Fetch subscriptions to map student info
-      const subSnap = await getDocs(query(collection(db, 'subscriptions'), where('schoolId', '==', schoolId)));
+
+      let schoolIdsToFetch = schoolId ? [schoolId] : [];
+      if (role === 'group_admin' && tenantId) {
+        const sSnap = await getDocs(query(collection(db, 'schools'), where('tenantId', '==', tenantId)));
+        schoolIdsToFetch = sSnap.docs.map(d => d.id);
+      }
+
+      if (role === 'group_admin' && schoolIdsToFetch.length === 0) {
+        setPayments([]);
+        return;
+      }
+
+      const getQuery = (colName: string) => {
+         let q = collection(db, colName) as any;
+         if (schoolId) q = query(q, where('schoolId', '==', schoolId));
+         else if (role === 'group_admin') q = query(q, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
+         return q;
+      };
+
+      const [subSnap, stuSnap, clsSnap, paySnap] = await Promise.all([
+         getDocs(getQuery('subscriptions')),
+         getDocs(role === 'superadmin' && !schoolId ? query(collection(db, 'users'), where('role', '==', 'student')) : query(getQuery('users'), where('role', '==', 'student'))),
+         getDocs(getQuery('classes')),
+         getDocs(getQuery('payments'))
+      ]);
+
       const subMap: Record<string, any> = {};
       subSnap.forEach(d => subMap[d.id] = { id: d.id, ...d.data() });
       setSubscriptionsMap(subMap);
 
-      // Fetch students and classes for names
-      const stuSnap = await getDocs(query(collection(db, 'users'), where('schoolId', '==', schoolId), where('role', '==', 'student')));
       const stuMap: Record<string, string> = {};
       stuSnap.forEach(d => stuMap[d.id] = d.data().name);
 
-      const clsSnap = await getDocs(query(collection(db, 'classes'), where('schoolId', '==', schoolId)));
       const clsMap: Record<string, string> = {};
       clsSnap.forEach(d => clsMap[d.id] = d.data().name);
 
-      const paySnap = await getDocs(query(collection(db, 'payments'), where('schoolId', '==', schoolId)));
       const payList: Payment[] = [];
       paySnap.forEach(d => {
         const p = { id: d.id, ...d.data() } as Payment;

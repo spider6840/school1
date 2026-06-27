@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -59,7 +59,7 @@ export default function Vacations() {
       q = query(q, where('season', '==', currentSeason));
 
       const snap = await getDocs(q);
-      setVacations(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Vacation)));
+      setVacations(snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Vacation)));
     } catch (e) {
       console.error(e);
     } finally {

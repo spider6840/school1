@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -66,7 +66,7 @@ export default function Classrooms() {
       else if (role === 'group_admin') q = query(q, where('schoolId', 'in', schoolIdsToFetch.slice(0, 30)));
 
       const snap = await getDocs(q);
-      setClassrooms(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Classroom)));
+      setClassrooms(snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Classroom)));
     } catch (e) {
       console.error(e);
     } finally {

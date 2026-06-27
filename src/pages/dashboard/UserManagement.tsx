@@ -20,10 +20,17 @@ interface UserProfile {
   uid: string;
   name: string;
   email: string;
-  role: 'superadmin' | 'admin' | 'accountant' | 'teacher' | 'student' | 'parent';
+  role: 'superadmin' | 'group_admin' | 'admin' | 'accountant' | 'teacher' | 'student' | 'parent' | 'sales';
   schoolId?: string;
+  tenantId?: string;
   parentEmail1?: string;
   parentEmail2?: string;
+  identityId?: string;
+  phone?: string;
+  phone2?: string;
+  address?: string;
+  photoUrl?: string;
+  isDisabled?: boolean;
   createdAt: any;
 }
 
@@ -54,7 +61,13 @@ export default function UserManagement() {
     schoolId: '',
     tenantId: '',
     parentEmail1: '',
-    parentEmail2: ''
+    parentEmail2: '',
+    identityId: '',
+    phone: '',
+    phone2: '',
+    address: '',
+    photoUrl: '',
+    isDisabled: false
   });
 
   const { primaryColor } = useTheme();
@@ -124,6 +137,12 @@ export default function UserManagement() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        identityId: formData.identityId || null,
+        phone: formData.phone || null,
+        phone2: formData.phone2 || null,
+        address: formData.address || null,
+        photoUrl: formData.photoUrl || null,
+        isDisabled: formData.isDisabled || false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -174,6 +193,12 @@ export default function UserManagement() {
         role: formData.role,
         schoolId: formData.role === 'group_admin' || formData.role === 'superadmin' ? null : (formData.schoolId || null),
         tenantId: formData.role === 'group_admin' ? (formData.tenantId || null) : null,
+        identityId: formData.identityId || null,
+        phone: formData.phone || null,
+        phone2: formData.phone2 || null,
+        address: formData.address || null,
+        photoUrl: formData.photoUrl || null,
+        isDisabled: formData.isDisabled || false,
         updatedAt: serverTimestamp()
       };
       if (formData.role === 'student') {
@@ -212,8 +237,15 @@ export default function UserManagement() {
       password: '', // Leave blank when editing
       role: user.role,
       schoolId: user.schoolId || '',
+      tenantId: user.tenantId || '',
       parentEmail1: user.parentEmail1 || '',
-      parentEmail2: user.parentEmail2 || ''
+      parentEmail2: user.parentEmail2 || '',
+      identityId: user.identityId || '',
+      phone: user.phone || '',
+      phone2: user.phone2 || '',
+      address: user.address || '',
+      photoUrl: user.photoUrl || '',
+      isDisabled: user.isDisabled || false
     });
     setShowEditModal(true);
   };
@@ -377,6 +409,65 @@ export default function UserManagement() {
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Identity ID (CIN/Passport)</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.identityId}
+                          onChange={(e) => setFormData({ ...formData, identityId: e.target.value })}
+                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Primary Phone</label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Secondary Phone</label>
+                        <input
+                          type="text"
+                          value={formData.phone2}
+                          onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
+                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Geographical Address</label>
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Photo URL</label>
+                        <input
+                          type="text"
+                          value={formData.photoUrl}
+                          onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
+                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800 border-none outline-none"
+                        />
+                      </div>
+                      {showEditModal && (
+                        <div>
+                          <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Account Status</label>
+                          <div className="flex items-center gap-2 px-6 py-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
+                             <input type="checkbox" checked={formData.isDisabled} onChange={e => setFormData({...formData, isDisabled: e.target.checked})} className="w-5 h-5" />
+                             <span className="font-bold text-gray-700 dark:text-gray-300">Disable Access</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
                         <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Account Role</label>
                         <select
                           value={formData.role}
@@ -388,6 +479,7 @@ export default function UserManagement() {
                           <option value="teacher">Teacher</option>
                           <option value="parent">Parent</option>
                           <option value="accountant">Accountant</option>
+                          <option value="sales">Sales</option>
                           <option value="admin">School Admin</option>
                           {isSuperAdmin && (
                             <>

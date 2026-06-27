@@ -10,6 +10,7 @@ import Home from './pages/Home';
 import Contact from './pages/Contact';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
+import LeadCapture from './pages/LeadCapture';
 
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { setPrimaryColor } = useTheme();
@@ -54,6 +55,7 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/contact" element={<Contact />} />
+                    <Route path="/landing" element={<LeadCapture />} />
                     <Route path="/auth" element={<Auth />} />
                     <Route path="/dashboard/*" element={<Dashboard />} />
                     <Route path="/superadmin/*" element={<Dashboard />} />
